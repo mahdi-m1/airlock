@@ -85,5 +85,34 @@ check("عنوان مطابق تقريبًا",
 check("عنوان مختلف",
       arabic.similarity("قانون العمل في القطاع الأهلي", "قانون التجارة") < 0.3, True)
 
+print("\n── هوية التشريع: صيغة الإصدار ──")
+# رقم خاطئ في السجل يمر من فحص العنوان، ثم يدخل كل علامة استشهاد تُولَّد منه.
+LAB = "قانون رقم (\u0663\u0666) لسنة \u0662\u0660\u0661\u0662 بإصدار قانون العمل في القطاع الأهلي"
+check("صيغة الإصدار بأرقام هندية", arabic.enactments(LAB), [("قانون", "36", "2012")])
+check("بلا أقواس ولا تشكيل",
+      arabic.enactments("مرسوم بقانون رقم 19 لسنة 2001"), [("مرسوم بقانون", "19", "2001")])
+check("«لعام» كـ«لسنة»", arabic.enactments("قانون رقم (9) لعام 2015"),
+      [("قانون", "9", "2015")])
+check("الأصفار البادئة تُطبَّع", arabic.enactments("قانون رقم (007) لسنة 1987"),
+      [("قانون", "7", "1987")])
+check("تكرار الصيغة لا يُكرَّر",
+      len(arabic.enactments(f"{LAB} ... {LAB}")), 1)
+
+check("الهوية تُطابق", arabic.identity_matches(LAB, "law", 36, 2012), True)
+check("رقم خاطئ يُرصد", arabic.identity_matches(LAB, "law", 37, 2012), False)
+check("سنة خاطئة تُرصد", arabic.identity_matches(LAB, "law", 36, 2013), False)
+check("نوع خاطئ يُرصد", arabic.identity_matches(LAB, "ord", 36, 2012), False)
+check("«مرسوم» المختصر يُقبل لمرسوم بقانون",
+      arabic.identity_matches("مرسوم رقم (19) لسنة 2001", "dl", 19, 2001), True)
+check("بلا صيغة إصدار: لا حكم",
+      arabic.identity_matches("المادة (1) نص ما", "law", 1, 2000), None)
+# النص المدمج يذكر تعديلاته: وجود صيغة أخرى لا ينفي هويته
+check("صيغة تعديل إضافية لا تُسقط الهوية",
+      arabic.identity_matches(f"{LAB}\nمعدَّل بالقانون رقم (31) لسنة 2014",
+                              "law", 36, 2012), True)
+check("الديباجة وحدها لا تُثبت الهوية",
+      arabic.identity_matches("بعد الاطلاع على القانون رقم (12) لسنة 1971",
+                              "law", 36, 2012), False)
+
 print(f"\n{'✓ كل الاختبارات ناجحة' if not FAIL else f'✗ {FAIL} اختبار فاشل'}\n")
 sys.exit(1 if FAIL else 0)

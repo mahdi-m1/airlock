@@ -176,6 +176,33 @@ else
   bad "لم يُرفض الفهرس غير الرسمي"; tail -5 "$TMP/disc.log" | sed 's/^/      /'
 fi
 
+# ── 2د. رقم خاطئ في السجل يُرفض ──────────────────────────────────────
+step "2د. رقم تشريع خاطئ في السجل (يجب أن يُرفض رغم صحة العنوان)"
+python3 - "$TMP" <<'PYD' >/dev/null
+import sys, yaml, pathlib
+tmp = pathlib.Path(sys.argv[1])
+src = yaml.safe_load(open('corpus/sources.yaml', encoding='utf-8'))
+src['ingest'].update(staging_dir='tools/tests/fixtures/staging',
+                     index_db=str(tmp/'wrongnum.db'), records_jsonl=str(tmp/'wn.jsonl'))
+for inst in src['instruments']:
+    if inst['key'] == 'labour-private-sector':
+        inst.update(number=37, url='https://lloc.gov.bh/fixture',
+                    gazette_issue='0000', gazette_date='2012-07-26')
+(tmp/'wrongnum.yaml').write_text(yaml.safe_dump(src, allow_unicode=True), encoding='utf-8')
+PYD
+python3 tools/ingest/ingest.py --sources "$TMP/wrongnum.yaml" \
+  --only labour-private-sector >"$TMP/wn.log" 2>&1
+if grep -q "تعارض هوية" "$TMP/wn.log"; then
+  ok "رُصد تعارض الهوية — العنوان صحيح والرقم خطأ"
+else
+  bad "لم يُرصد الرقم الخاطئ"; tail -8 "$TMP/wn.log" | sed 's/^/      /'
+fi
+if grep -q "قانون 36/2012" "$TMP/wn.log"; then
+  ok "  وأُعلنت صيغة الإصدار الواردة في النص"
+else
+  bad "لم تُعلن صيغة الإصدار الحقيقية"
+fi
+
 # ── 3. البحث المقتطع ──────────────────────────────────────────────────
 step "3. البحث المقتطع يجد المادة الحاكمة"
 if python3 tools/corpus/corpus_cli.py --db "$DB" search "الفصل التعسفي تعويض" \

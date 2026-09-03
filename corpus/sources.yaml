@@ -294,6 +294,198 @@ instruments:
     consolidated: false
     verified: false
 
+  # ═══════════════════════════════════════════════════════════════════
+  #  الدفعة الثانية — تشريعات يحتاجها المكتب في عمله اليومي
+  #
+  #  ⚠ أرقامها وسنواتها **مرشّحات للتحقق**، كسابقاتها. لم أفتح مصدرًا
+  #  رسميًا واحدًا (بيئة البناء تحجب النطاقات البحرينية)، فهذه قائمة عمل
+  #  لا قائمة حقائق.
+  #
+  #  وما يحميك من الخطأ فيها ليس دقتي: المستورد يقرأ صيغة الإصدار من متن
+  #  النص المُنزَّل («قانون رقم (36) لسنة 2012») ويقابلها بالمسجَّل هنا،
+  #  فيرفض الاستيراد ويسمّي الصيغة التي وجدها إن اختلفا. صحّح السجل حينها
+  #  ليطابق النص الرسمي، لا العكس.
+  #
+  #  ابدأ بما يخدم قضاياك الجارية: عشرون تشريعًا مستوردًا ومحققًا أنفع من
+  #  أربعين نصفها معلَّق.
+  # ═══════════════════════════════════════════════════════════════════
+
+  # ── عمالي ──
+  - key: social-insurance
+    type: dl
+    number: 24
+    year: 1976
+    title: قانون التأمين الاجتماعي
+    practice_areas: [labour]
+    url: ""
+    gazette_issue: ""
+    gazette_date: ""
+    amendments: []
+    consolidated: false
+    verified: false
+  - key: trade-unions
+    type: law
+    number: 33
+    year: 2002
+    title: قانون النقابات العمالية
+    practice_areas: [labour]
+    url: ""
+    gazette_issue: ""
+    gazette_date: ""
+    amendments: []
+    consolidated: false
+    verified: false
+  - key: unemployment-insurance
+    type: dl
+    number: 78
+    year: 2006
+    title: قانون التأمين ضد التعطل
+    practice_areas: [labour]
+    url: ""
+    gazette_issue: ""
+    gazette_date: ""
+    amendments: []
+    consolidated: false
+    verified: false
+
+  # ── إجرائي ومهني — يمس كل قضية مهما كان موضوعها ──
+  - key: advocacy
+    type: dl
+    number: 26
+    year: 1980
+    title: قانون المحاماة
+    practice_areas: [civil, commercial, labour]
+    url: ""
+    gazette_issue: ""
+    gazette_date: ""
+    amendments: []
+    consolidated: false
+    verified: false
+  - key: judicial-authority
+    type: dl
+    number: 42
+    year: 2002
+    title: قانون السلطة القضائية
+    practice_areas: [civil, commercial, labour]
+    url: ""
+    gazette_issue: ""
+    gazette_date: ""
+    amendments: []
+    consolidated: false
+    verified: false
+
+  # ── مدني وعقاري ──
+  - key: real-estate-registration
+    type: law
+    number: 13
+    year: 2013
+    title: قانون التسجيل العقاري
+    practice_areas: [civil, commercial]
+    url: ""
+    gazette_issue: ""
+    gazette_date: ""
+    amendments: []
+    consolidated: false
+    verified: false
+  - key: real-estate-sector
+    type: law
+    number: 27
+    year: 2017
+    title: قانون تنظيم القطاع العقاري
+    practice_areas: [civil, commercial]
+    url: ""
+    gazette_issue: ""
+    gazette_date: ""
+    amendments: []
+    consolidated: false
+    verified: false
+
+  # ── تجاري ──
+  - key: consumer-protection
+    type: law
+    number: 35
+    year: 2012
+    title: قانون حماية المستهلك
+    practice_areas: [commercial, civil]
+    url: ""
+    gazette_issue: ""
+    gazette_date: ""
+    amendments: []
+    consolidated: false
+    verified: false
+  - key: competition
+    type: law
+    number: 31
+    year: 2018
+    title: قانون حماية المنافسة
+    practice_areas: [commercial]
+    url: ""
+    gazette_issue: ""
+    gazette_date: ""
+    amendments: []
+    consolidated: false
+    verified: false
+  - key: personal-data
+    type: law
+    number: 30
+    year: 2018
+    title: قانون حماية البيانات الشخصية
+    practice_areas: [commercial, civil]
+    url: ""
+    gazette_issue: ""
+    gazette_date: ""
+    amendments: []
+    consolidated: false
+    verified: false
+  - key: electronic-transactions
+    type: dl
+    number: 28
+    year: 2002
+    title: قانون المعاملات الإلكترونية
+    practice_areas: [commercial, civil]
+    url: ""
+    gazette_issue: ""
+    gazette_date: ""
+    amendments: []
+    consolidated: false
+    verified: false
+  - key: trademarks
+    type: law
+    number: 6
+    year: 2014
+    title: قانون العلامات التجارية
+    practice_areas: [commercial]
+    url: ""
+    gazette_issue: ""
+    gazette_date: ""
+    amendments: []
+    consolidated: false
+    verified: false
+  - key: patents
+    type: law
+    number: 1
+    year: 2004
+    title: قانون براءات الاختراع ونماذج المنفعة
+    practice_areas: [commercial]
+    url: ""
+    gazette_issue: ""
+    gazette_date: ""
+    amendments: []
+    consolidated: false
+    verified: false
+  - key: copyright
+    type: law
+    number: 22
+    year: 2006
+    title: قانون حماية حقوق المؤلف والحقوق المجاورة
+    practice_areas: [commercial, civil]
+    url: ""
+    gazette_issue: ""
+    gazette_date: ""
+    amendments: []
+    consolidated: false
+    verified: false
+
 # ── إعدادات الاستيراد ─────────────────────────────────────────────────
 ingest:
   # مجلد التجهيز: الملفات الرسمية المُنزَّلة (HTML/نص) قبل التحليل.

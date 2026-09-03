@@ -303,16 +303,35 @@ def main() -> int:
             match = 1.0
         title_ok = match >= threshold
 
+        # ── التحقق من هوية التشريع: رقمه وسنته ──
+        # العنوان وحده لا يكفي. رقم أو سنة خاطئة في السجل تمر من فحص العنوان
+        # بلا أثر، ثم تدخل **كل علامة استشهاد** تُولَّد من هذا التشريع: المادة
+        # صحيحة ونصها صحيح، والقانون المنسوبة إليه غيره. لا بوابة بعدها تلتقط
+        # ذلك، لأن كل شيء في المدونة متسق مع نفسه.
+        identity = arabic.identity_matches(text, inst["type"], inst["number"], inst["year"])
+
         # التوثيق شرط في الاستشهاد لا في الاستيراد: النص يُخزَّن، لكنه لا يُوسم
         # verified — فلا يستطيع أي وكيل الاستشهاد به — حتى يُعرف عدد الجريدة
         # الرسمية وتاريخه، وهما ما يثبت أن هذا هو النص النافذ.
         gap = provenance_gap(inst) if strict else []
-        verified = title_ok and not gap
+        verified = title_ok and identity is not False and not gap
 
         # ── التقسيم ──
         articles = arabic.segment_articles(text)
         if not articles:
             print(f"  {C_R}✗{C_0} {label}\n      {C_D}لم يُعثر على أي مادة — تحقق من تنسيق الملف{C_0}")
+            failed += 1
+            continue
+        if identity is False and not args.force_unverified:
+            found = "، ".join(f"{k} {n}/{y}" for k, n, y in arabic.enactments(text)[:4])
+            print(f"  {C_R}✗{C_0} {label}\n"
+                  f"      {C_D}تعارض هوية: النص لا يعلن أنه "
+                  f"{inst['type']} {inst['number']}/{inst['year']}.{C_0}\n"
+                  f"      {C_D}صيغ الإصدار الواردة فيه: {found or '—'}{C_0}\n"
+                  f"      {C_D}إما أن الرقم أو السنة في sources.yaml خطأ، وإما أن\n"
+                  f"      الملف المُنزَّل لتشريع آخر. صحّح السجل ليطابق النص الرسمي.{C_0}\n"
+                  f"      {C_D}رقم خاطئ يمر من فحص العنوان ثم يدخل كل علامة\n"
+                  f"      استشهاد — لا بوابة بعده تلتقطه.{C_0}")
             failed += 1
             continue
         if not title_ok and not args.force_unverified:
@@ -350,6 +369,9 @@ def main() -> int:
             print(f"      {C_D}    --url \"…\" --gazette <العدد> --date YYYY-MM-DD{C_0}")
         elif not title_ok:
             print(f"      {C_Y}العنوان لم يطابق ({match:.0%}){C_0}")
+        if identity is None:
+            print(f"      {C_D}لا صيغة إصدار في النص — لم يُتحقق من الرقم والسنة "
+                  f"آليًا. قابِلهما بالمصدر.{C_0}")
         amends = inst.get("amendments") or []
         if amends and not inst.get("consolidated"):
             names = "، ".join(f"{a['type']} {a['number']}/{a['year']}" for a in amends)

@@ -108,6 +108,55 @@ def article_key(number: str, bis: str | None = None) -> str:
     return f"{number}-مكرر" if bis else str(number)
 
 
+# صيغة الإصدار: «قانون رقم (36) لسنة 2012»، «مرسوم بقانون رقم (19) لسنة 2001».
+# القوسان اختياريان، والأرقام قد ترد عربية هندية (تُطبَّع قبل المطابقة).
+_ENACTMENT = re.compile(
+    r"(?P<kind>مرسوم\s+بقانون|مرسوم|قانون|قرار|أمر)"
+    r"\s*رقم\s*[(\[]?\s*(?P<num>\d{1,4})\s*[)\]]?"
+    r"\s*(?:ل?سنة|لعام)\s*[(\[]?\s*(?P<year>\d{4})")
+
+_KIND_TYPES = {
+    "قانون": {"law"},
+    "مرسوم بقانون": {"dl"},
+    "مرسوم": {"dec", "dl"},      # «مرسوم بقانون» يُختصر كثيرًا إلى «مرسوم»
+    "قرار": {"ord"},
+    "أمر": {"ord", "dec"},
+}
+
+
+def enactments(text: str) -> list[tuple[str, str, str]]:
+    """صيغ الإصدار الواردة في نص تشريع: (النوع، الرقم، السنة).
+
+    Extracts the enactment formulae a statute states about itself. The point is
+    to catch an instrument recorded under the wrong number: the title may match
+    perfectly while every citation marker built from it names another law.
+    """
+    out, seen = [], set()
+    for m in _ENACTMENT.finditer(normalize(text)):
+        num = m.group("num").lstrip("0") or "0"
+        item = (re.sub(r"\s+", " ", m.group("kind")), num, m.group("year"))
+        if item not in seen:
+            seen.add(item)
+            out.append(item)
+    return out
+
+
+def identity_matches(text: str, type_: str, number: str, year: str) -> bool | None:
+    """هل يعلن النص أنه هذا التشريع بعينه؟ None حين لا صيغة إصدار فيه.
+
+    النوع يُطابَق تساهلًا: «مرسوم بقانون» يرد مختصرًا «مرسوم» في كثير من
+    النصوص، والرقم والسنة هما الفاصل.
+    """
+    found = enactments(text)
+    if not found:
+        return None
+    for kind, num, yr in found:
+        if num == str(number).lstrip("0") and yr == str(year):
+            if type_ in _KIND_TYPES.get(kind, {type_}):
+                return True
+    return False
+
+
 def segment_articles(text: str) -> list[dict]:
     """تقسيم نص تشريع إلى مواد.
 
