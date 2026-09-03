@@ -67,6 +67,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_header("Content-Type", "text/html")   # ترويسة كاذبة عمدًا
             self.end_headers()
             self.wfile.write(b"%PDF-1.4\n% test\n")
+        elif self.path == "/catalog":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(CATALOG.encode())
         elif self.path == "/huge":
             self.send_response(200)
             self.end_headers()
@@ -149,6 +154,68 @@ out, why = bc.to_text(bad, accept_low=False)
 check("استخراج فاشل لا يكتب نصًا", out, None)
 check("والسبب معلن", bool(why), True)
 check("ولا يُترك ملف نصي مضلّل", (STAGING / "bad.txt").exists(), False)
+
+print("\n── الاستكشاف من فهرس رسمي ──")
+CATALOG = ("<html><body><ul>"
+           "<li><a href='/L/K3612'>قانون رقم (\u0663\u0666) لسنة \u0662\u0660\u0661\u0662 "
+           "بإصدار قانون العمل في القطاع الأهلي</a></li>"
+           "<li><a href='/L/K1901'>مرسوم بقانون رقم (19) لسنة 2001 بإصدار القانون المدني</a></li>"
+           "<li><a href='/L/K3614'>قانون رقم (36) لسنة 2014 في شأن آخر تمامًا</a></li>"
+           "<li><a href='javascript:void(0)'>افتح</a></li>"
+           "<li><a href='https://mirror.example.com/civil'>القانون المدني</a></li>"
+           "</ul></body></html>")
+
+from lib import discover  # noqa: E402
+
+found = discover.links(CATALOG, f"{BASE}/ElectronicLibrary")
+check("javascript: لا يُلتقط", all("javascript" not in x.url for x in found), True)
+check("روابط خارج المضيف تُستبعد",
+      all("mirror.example.com" not in x.url for x in found), True)
+check("الروابط النسبية تُحوَّل مطلقة",
+      sorted(x.url for x in found), [f"{BASE}/L/K1901", f"{BASE}/L/K3612", f"{BASE}/L/K3614"])
+
+INSTS = [
+    {"key": "labour", "type": "law", "number": 36, "year": 2012,
+     "title": "قانون العمل في القطاع الأهلي"},
+    {"key": "civil", "type": "dl", "number": 19, "year": 2001, "title": "القانون المدني"},
+    {"key": "ghost", "type": "law", "number": 99, "year": 1999, "title": "قانون لا وجود له"},
+]
+hits = discover.match(INSTS, found)
+check("الأرقام العربية الهندية تُطابق", hits["labour"][0].url, f"{BASE}/L/K3612")
+check("والمرشّح الأول قاطع", hits["labour"][0].strong, True)
+check("النوع يميّز المرسوم بقانون", hits["civil"][0].url, f"{BASE}/L/K1901")
+check("رقم صحيح بسنة خاطئة لا يُرشَّح",
+      any(c.url.endswith("K3614") for c in hits["labour"]), False)
+check("تشريع لا وجود له في الفهرس: لا مرشّح", "ghost" in hits, False)
+
+# ── الدورة كاملة عبر الشبكة المحلية، مع الكتابة في السجل ──
+import re as _re  # noqa: E402
+
+SRC = TMP / "src.yaml"
+SRC.write_text(
+    "domains:\n  - host: 127.0.0.1\n    role: primary\n"
+    f"catalogs:\n  - url: \"{BASE}/catalog\"\n"
+    "instruments:\n"
+    "  - key: civil-code\n    type: dl\n    number: 19\n    year: 2001\n"
+    "    title: القانون المدني\n    url: \"\"\n"
+    "    gazette_issue: \"\"\n    gazette_date: \"\"\n    verified: false\n",
+    encoding="utf-8")
+import yaml  # noqa: E402
+
+cfg = yaml.safe_load(SRC.read_text(encoding="utf-8"))
+rc = bc.cmd_discover(cfg, [f"{BASE}/catalog"], cfg["instruments"], "t/1", 10,
+                     {"127.0.0.1"}, str(SRC), write=True)
+check("الدورة تنجح", rc, 0)
+written = SRC.read_text(encoding="utf-8")
+check("سُجّل الرابط القاطع في السجل", f'url: "{BASE}/L/K1901"' in written, True)
+check("ولم يُلمس التوثيق — يبقى غير قابل للاستشهاد",
+      _re.search(r'gazette_issue: ""', written) is not None, True)
+
+# فهرس خارج قائمة السماح لا يُقرأ أصلًا
+rc = bc.cmd_discover(cfg, ["https://evil.example.com/list"], cfg["instruments"],
+                     "t/1", 10, {"127.0.0.1"}, str(SRC), write=False)
+check("فهرس خارج قائمة السماح يُرفض", rc, 1)
+
 
 print("\n── ترحيل مخزن قديم ──")
 # مدونة بُنيت بنسخة أقدم: `CREATE TABLE IF NOT EXISTS` لا يضيف أعمدة لجدول

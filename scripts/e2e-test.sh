@@ -167,6 +167,15 @@ else
   bad "ظهر رابط مُخمَّن في مخرجات البانية"
 fi
 
+# فهرس من نطاق غير رسمي لا يُقرأ أصلًا — الرفض قبل الطلب، بلا شبكة
+python3 scripts/build-corpus.py --sources "$TMP/build.yaml" \
+  --discover "https://evil.example.com/laws" >"$TMP/disc.log" 2>&1 || true
+if grep -q "خارج قائمة السماح" "$TMP/disc.log"; then
+  ok "فهرس من نطاق غير رسمي يُرفض قبل الطلب"
+else
+  bad "لم يُرفض الفهرس غير الرسمي"; tail -5 "$TMP/disc.log" | sed 's/^/      /'
+fi
+
 # ── 3. البحث المقتطع ──────────────────────────────────────────────────
 step "3. البحث المقتطع يجد المادة الحاكمة"
 if python3 tools/corpus/corpus_cli.py --db "$DB" search "الفصل التعسفي تعويض" \

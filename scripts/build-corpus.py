@@ -25,6 +25,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import subprocess
 import sys
@@ -39,7 +40,14 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import yaml  # noqa: E402
 
-from lib import documents, extract  # noqa: E402
+from lib import discover, documents, extract  # noqa: E402
+
+# تسجيل الرابط يعيش في المستورد ومعه فحص النطاق وحفظ تعليقات السجل — يُستورد
+# بدل أن يُكرَّر، فنسختان من قاعدة أمنية واحدة تفترقان عاجلًا.
+_spec = importlib.util.spec_from_file_location("ingest_mod", ROOT / "tools/ingest/ingest.py")
+_ingest = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_ingest)
+set_url = _ingest.set_url
 
 C_R, C_G, C_Y, C_B, C_D, C_0 = (
     "\033[31m", "\033[32m", "\033[33m", "\033[1m", "\033[2m", "\033[0m")
@@ -71,9 +79,8 @@ class _AllowlistRedirect(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def download(url: str, key: str, staging: Path, ua: str, timeout: int,
-             allowed: set[str]) -> dict:
-    """تنزيل مصدر رسمي إلى مجلد التجهيز. يعيد سجل التنزيل للسجلّ المرافق."""
+def get(url: str, ua: str, timeout: int, allowed: set[str]) -> dict:
+    """طلب واحد لمصدر رسمي، بقائمة السماح مفروضة على كل تحويلة."""
     host = (urlparse(url).hostname or "").lower()
     if host not in allowed:
         raise PermissionError(f"النطاق «{host}» خارج قائمة السماح في sources.yaml")
@@ -89,6 +96,16 @@ def download(url: str, key: str, staging: Path, ua: str, timeout: int,
         raise ValueError(f"حجم الملف يتجاوز {MAX_DOWNLOAD_BYTES // 1048576} ميغابايت")
     if not raw:
         raise ValueError("الاستجابة فارغة")
+    return {"raw": raw, "status": status, "content_type": ctype,
+            "final_url": final, "hops": hops}
+
+
+def download(url: str, key: str, staging: Path, ua: str, timeout: int,
+             allowed: set[str]) -> dict:
+    """تنزيل مصدر رسمي إلى مجلد التجهيز. يعيد سجل التنزيل للسجلّ المرافق."""
+    r = get(url, ua, timeout, allowed)
+    raw, status, ctype = r["raw"], r["status"], r["content_type"]
+    final, hops = r["final_url"], r["hops"]
 
     # الامتداد من بايتات الملف لا من ترويسة الخادم: الترويسة قد تكذب،
     # والصيغة الحقيقية هي ما يقرؤه المستخرج بعد قليل.
@@ -175,6 +192,85 @@ def survey(instruments: list[dict], staging: Path, *, refresh: bool,
     return plan
 
 
+# ── الاستكشاف من فهرس رسمي ────────────────────────────────────────────
+def cmd_discover(src: dict, catalogs: list[str], instruments: list[dict],
+                 ua: str, timeout: int, allowed: set[str], sources_path: str,
+                 *, write: bool) -> int:
+    """مطابقة روابط فهرس رسمي بالتشريعات التي لا رابط لها.
+
+    الفهرس يوفّر أشق خطوة في بناء المدونة — العثور على صفحة كل تشريع — لكنه
+    لا يوفّر التحقق: نص الرابط قد يكون عنوانًا مختصرًا أو عنوان مرسوم تعديل.
+    فالأداة ترشّح وتشرح سبب الترشيح، والقرار يبقى للمشغّل.
+    """
+    pending = [i for i in instruments if not (i.get("url") or "").strip()]
+    if not pending:
+        print(f"  {C_G}كل تشريع في السجل له رابط مسجَّل — لا شيء لاستكشافه.{C_0}\n")
+        return 0
+    if not catalogs:
+        print(f"  {C_Y}لا فهرس مسجَّلًا.{C_0} أضِف صفحات الفهارس تحت `catalogs` في "
+              f"sources.yaml،\n  أو مرّرها: --discover \"https://…\"\n")
+        return 1
+
+    found: list[discover.Link] = []
+    for url in catalogs:
+        try:
+            r = get(url, ua, timeout, allowed)
+        except Exception as exc:  # noqa: BLE001
+            print(f"  {C_R}✗{C_0} {url}\n      {C_D}{type(exc).__name__}: {exc}{C_0}")
+            continue
+        html = documents.decode_text(r["raw"])[0] or r["raw"].decode("utf-8", "replace")
+        page = discover.links(html, r["final_url"])
+        found.extend(page)
+        print(f"  {C_G}✓{C_0} {url}  {C_D}{len(page)} رابطًا{C_0}")
+    if not found:
+        print(f"\n  {C_Y}لم يُقرأ أي رابط من الفهارس.{C_0}\n")
+        return 1
+
+    hits = discover.match(pending, found)
+    print(f"\n  {len(found)} رابطًا مقروءًا · مرشّحات لـ{len(hits)} من "
+          f"{len(pending)} تشريعًا ناقصًا\n")
+
+    recorded = 0
+    for inst in pending:
+        cands = hits.get(inst["key"])
+        print(f"  ── {inst['title']} ({inst['number']}/{inst['year']})")
+        if not cands:
+            print(f"     {C_Y}لا مرشّح.{C_0} {C_D}ابحث في الفهرس برقم القانون "
+                  f"وسنته، وسجّل الرابط يدويًا.{C_0}\n")
+            continue
+        for n, c in enumerate(cands, 1):
+            flag = f"{C_G}★{C_0}" if c.strong else " "
+            print(f"   {flag} {n}. {c.score:.2f}  {c.text[:70]}")
+            print(f"        {C_D}{c.url}{C_0}")
+            print(f"        {C_D}{' · '.join(c.reasons)}{C_0}")
+        top = cands[0]
+        if write and top.strong:
+            ok, why = set_url(Path(sources_path), inst["key"], top.url, allowed)
+            if ok:
+                recorded += 1
+                print(f"     {C_G}✓ سُجّل الرابط الأول.{C_0} {C_D}يبقى غير قابل "
+                      f"للاستشهاد حتى تُسجَّل الجريدة، ويتحقق المستورد من "
+                      f"العنوان من متن النص نفسه.{C_0}")
+            else:
+                print(f"     {C_R}✗ لم يُسجَّل:{C_0} {why}")
+        elif write:
+            print(f"     {C_Y}لم يُسجَّل آليًا{C_0} {C_D}— الترجيح دون العتبة "
+                  f"القاطعة. راجعه بنفسك.{C_0}")
+        print(f"     python3 tools/ingest/ingest.py --set-provenance {inst['key']} \\")
+        print(f"         --url \"{top.url}\" --gazette <العدد> --date YYYY-MM-DD\n")
+
+    print(f"{C_D}{'─' * 60}{C_0}")
+    if write:
+        print(f"  سُجّل آليًا: {recorded} رابطًا (الترجيح القاطع وحده).")
+    else:
+        print(f"  {C_D}لم يُكتب شيء. للتسجيل الآلي للمرشّح القاطع (★):"
+              f" --discover --write-urls{C_0}")
+    print(f"  {C_D}المطابقة على نص الرابط لا على متن التشريع — والتحقق النهائي\n"
+          f"  عند الاستيراد بمقارنة العنوان بالنص المُنزَّل.{C_0}\n")
+    print(f"  ثم:  {C_B}python3 scripts/build-corpus.py{C_0}\n")
+    return 0
+
+
 def run(cmd: list[str]) -> int:
     """تشغيل أداة من أدوات المستودع — بلا صدفة، والمخرجات تمر كما هي."""
     print(f"{C_D}$ {' '.join(cmd[1:])}{C_0}")
@@ -196,6 +292,11 @@ def main() -> int:
     ap.add_argument("--force-unverified", action="store_true",
                     help="استورد رغم فشل مطابقة العنوان")
     ap.add_argument("--no-calibrate", action="store_true", help="لا تعايِر العتبة")
+    ap.add_argument("--discover", nargs="*", metavar="URL",
+                    help="استكشف روابط التشريعات الناقصة من فهرس رسمي "
+                         "(الافتراضي: الفهارس المسجّلة في sources.yaml)")
+    ap.add_argument("--write-urls", action="store_true",
+                    help="مع --discover: سجّل الرابط الأول متى كان ترجيحه قاطعًا")
     args = ap.parse_args()
 
     src = yaml.safe_load(Path(args.sources).read_text(encoding="utf-8")) or {}
@@ -213,6 +314,13 @@ def main() -> int:
         if not instruments:
             print(f"{C_R}لا تشريع يطابق: {' '.join(args.only)}{C_0}", file=sys.stderr)
             return 2
+
+    if args.discover is not None:
+        print(f"\n{C_B}══ استكشاف روابط التشريعات من الفهارس الرسمية ══{C_0}\n")
+        catalogs = args.discover or [c["url"] for c in src.get("catalogs", [])
+                                     if (c.get("url") or "").strip()]
+        return cmd_discover(src, catalogs, instruments, ua, timeout, allowed,
+                            args.sources, write=args.write_urls)
 
     plan = survey(instruments, staging, refresh=args.refresh, fetch=not args.no_fetch)
     n_fetch = sum(p["action"] == "fetch" for p in plan)

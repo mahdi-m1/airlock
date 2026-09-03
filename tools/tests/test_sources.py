@@ -201,6 +201,19 @@ check("كل تعديل بنوع ورقم وسنة",
       all({"type", "number", "year"} <= set(a) for a in lab["amendments"]), True)
 
 
+print("\n── الفهارس الرسمية ──")
+# الفهرس يُقرأ عبر الشبكة كأي مصدر، فنطاقه يخضع لقائمة السماح نفسها.
+from urllib.parse import urlparse as _up  # noqa: E402
+
+_hosts = {d["host"].lower() for d in CFG["domains"]}
+_cats = CFG.get("catalogs", [])
+check("سجل الفهارس غير فارغ", bool(_cats), True)
+check("كل فهرس بنطاق مسموح",
+      all((_up(c["url"]).hostname or "").lower() in _hosts for c in _cats), True)
+check("كل فهرس عبر https",
+      all(_up(c["url"]).scheme == "https" for c in _cats), True)
+
+
 print("\n── سطر التوثيق الكامل ──")
 # ما يُسجَّل مع كل استشهاد: الجريدة، والمصدر ورتبته، وتاريخ الوصول.
 from lib.corpus import SOURCE_TIERS, provenance_line  # noqa: E402
