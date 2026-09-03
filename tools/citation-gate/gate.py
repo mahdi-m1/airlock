@@ -25,6 +25,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import yaml  # noqa: E402
 
+from lib import semantic  # noqa: E402
 from lib.citation import find_malformed, parse_all, render_clean  # noqa: E402
 from lib.corpus import Corpus  # noqa: E402
 
@@ -54,13 +55,15 @@ def section_bodies(text: str) -> list[tuple[str, str]]:
     return out
 
 
-def check(path: Path, kind: str, db: str, cfg: dict) -> dict:
+def check(path: Path, kind: str, db: str, cfg: dict, *, deep: bool = True) -> dict:
     text = path.read_text(encoding="utf-8")
     rules = cfg.get("citations", {})
     min_needed = int(rules.get(f"min_citations_{kind}", 0) or 0)
+    min_overlap = float(rules.get("min_semantic_overlap", 0.35) or 0.35)
 
     problems: list[str] = []
     resolved: list[dict] = []
+    adjudicate: list[dict] = []
 
     # ── 1. علامات مشوّهة — أرجح أشكال الاستشهاد الملفَّق ──
     for pos, raw in find_malformed(text):
@@ -69,16 +72,34 @@ def check(path: Path, kind: str, db: str, cfg: dict) -> dict:
 
     # ── 2. حل كل علامة صحيحة مقابل المدونة ──
     cits = parse_all(text)
+    spans = [(c.pos, len(c.raw)) for c in cits]
     corpus = Corpus(db)
+    idf = corpus.term_idf() if deep else {}
     for c in cits:
         line = text.count("\n", 0, c.pos) + 1
         ok, why = corpus.resolve(c.instrument_id, c.article_key)
-        if ok:
-            inst = corpus.instrument(c.instrument_id)
-            resolved.append({"marker": c.raw, "ref": c.ref_id,
-                             "instrument": inst["title"], "line": line})
-        else:
+        if not ok:
             problems.append(f"سطر {line}: {why}  ← {c.raw}")
+            continue
+        inst = corpus.instrument(c.instrument_id)
+        entry = {"marker": c.raw, "ref": c.ref_id,
+                 "instrument": inst["title"], "line": line}
+
+        # ── 2ب. التدقيق الدلالي: هل تقول المادة ما نُسب إليها؟ ──
+        art = corpus.article(c.instrument_id, c.article_key) if c.article_key else None
+        if deep and art is not None:
+            claim = semantic.claim_span(text, c.pos, len(c.raw), spans)
+            sup = semantic.check(claim, art["text"], idf=idf, min_overlap=min_overlap)
+            entry |= {"verdict": sup.verdict, "overlap": round(sup.overlap, 3)}
+            if sup.blocking:
+                for m in sup.conflicts:
+                    problems.append(f"سطر {line}: {m}  ← {c.raw}")
+                continue
+            if sup.verdict == "يحتاج تحكيمًا":
+                adjudicate.append(entry | {
+                    "claim": claim, "article_label": art["label"],
+                    "article_text": art["text"], "doubts": sup.doubts})
+        resolved.append(entry)
 
     # ── 3. حد أدنى من الإسناد ──
     if len(resolved) < min_needed:
@@ -96,21 +117,69 @@ def check(path: Path, kind: str, db: str, cfg: dict) -> dict:
     return {
         "file": str(path), "kind": kind,
         "passed": not problems,
+        "needs_adjudication": bool(adjudicate),
         "citations_resolved": len(resolved),
         "citations_total": len(cits),
         "resolved": resolved,
+        "adjudicate": adjudicate,
         "problems": problems,
     }
 
 
+WORKSHEET_HEADER = """# ورقة التحكيم الدلالي
+
+بوابة الإسناد أثبتت أن كل مادة أدناه **موجودة** في المدونة. ما لم تثبته — ولا
+يمكن إثباته آليًا — هو أن المادة تقول فعلًا ما نُسب إليها. هذا العطب هو الوحيد
+الذي يعبر البوابة الحتمية، ولذلك يُحسم هنا بندًا بندًا لا بانطباع عام.
+
+**لكل بند اكتب حكمًا واحدًا من ثلاثة:**
+
+- `مسنود` — نص المادة يحمل ما نُسب إليه. اذكر العبارة الحاملة له من المادة.
+- `جزئي` — يسنده في شق دون شق. بيّن الشق غير المسنود وما يلزم لتصحيحه.
+- `غير مسنود` — لا يحمله. المسودة تُرد للصياغة.
+
+لا تترك بندًا بلا حكم، ولا تكتب «يبدو صحيحًا». إن لم تجد العبارة الحاملة في
+نص المادة أدناه فالحكم `غير مسنود` — النص المعروض هو كل ما في المدونة.
+"""
+
+
+def write_worksheet(report: dict, path: Path) -> None:
+    """ورقة تحكيم مهيكلة للبنود الملتبسة وحدها.
+
+    Only ambiguous citations reach here, so the adjudicating agent reads a
+    handful of short items instead of the whole draft — the judgement is
+    recorded per citation and auditable, and the token cost stays proportional
+    to genuine doubt rather than to document length.
+    """
+    lines = [WORKSHEET_HEADER, f"\n**الوثيقة:** `{report['file']}`  ",
+             f"**بنود تحتاج تحكيمًا:** {len(report['adjudicate'])}\n\n---\n"]
+    for i, a in enumerate(report["adjudicate"], 1):
+        lines.append(f"\n## {i}. {a['ref']} — {a['article_label']} من {a['instrument']}\n")
+        lines.append(f"**ما نسبته المسودة إليها** (سطر {a['line']}):\n\n"
+                     f"> {a['claim']}\n")
+        lines.append(f"**نص المادة كما في المدونة:**\n\n> {a['article_text']}\n")
+        lines.append("**ما استوقف الفحص الآلي:**\n")
+        lines += [f"- {d}" for d in a["doubts"]]
+        lines.append(f"\n**الحكم:** <!-- مسنود | جزئي | غير مسنود -->\n")
+        lines.append("**العبارة الحاملة من نص المادة:**\n")
+        lines.append("**التعليل:**\n\n---\n")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def main() -> int:
-    ap = argparse.ArgumentParser(description="بوابة التحقق من الإسناد القانوني")
+    ap = argparse.ArgumentParser(
+        description="بوابة التحقق من الإسناد القانوني — وجود المادة ثم دلالتها")
     ap.add_argument("file", type=Path)
     ap.add_argument("--kind", choices=["memo", "pleading", "opinion"], default="memo",
                     help="memo=مذكرة  pleading=مرافعة  opinion=رأي")
     ap.add_argument("--db", default=str(ROOT / "corpus/index/corpus.db"))
     ap.add_argument("--render", type=Path, metavar="OUT",
                     help="عند النجاح: كتابة الوثيقة النهائية بلا علامات آلية")
+    ap.add_argument("--worksheet", type=Path, metavar="OUT",
+                    help="كتابة ورقة التحكيم للبنود الملتبسة")
+    ap.add_argument("--no-semantic", action="store_true",
+                    help="الاكتفاء بفحص الوجود دون التدقيق الدلالي")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
@@ -119,37 +188,61 @@ def main() -> int:
         return 2
     cfg = load_office_config()
     try:
-        report = check(args.file, args.kind, args.db, cfg)
+        report = check(args.file, args.kind, args.db, cfg, deep=not args.no_semantic)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 2
+
+    pending = report["passed"] and report["needs_adjudication"]
 
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))
     else:
         print(f"\n══ بوابة الإسناد — {args.file.name} ══")
-        print(f"{C_D}النوع: {args.kind}   الإسنادات: "
+        mode = "وجود + دلالة" if not args.no_semantic else "وجود فقط"
+        print(f"{C_D}النوع: {args.kind}   الفحص: {mode}   الإسنادات: "
               f"{report['citations_resolved']}/{report['citations_total']} مُحلّة{C_0}\n")
         for r in report["resolved"]:
-            print(f"  {C_G}✓{C_0} سطر {r['line']}: {r['ref']} — {r['instrument']}")
+            v = r.get("verdict")
+            mark, col = (f"?", C_Y) if v == "يحتاج تحكيمًا" else ("✓", C_G)
+            extra = ""
+            if v:
+                extra = f"  {C_D}[{v}"
+                extra += f"، تداخل {r['overlap']:.0%}]{C_0}" if "overlap" in r else f"]{C_0}"
+            print(f"  {col}{mark}{C_0} سطر {r['line']}: {r['ref']} — {r['instrument']}{extra}")
+        for a in report["adjudicate"]:
+            for d in a["doubts"]:
+                print(f"      {C_Y}?{C_0} {d}")
         for p in report["problems"]:
             print(f"  {C_R}✗{C_0} {p}")
         print()
-        if report["passed"]:
-            print(f"{C_G}✓ قُبلت المسودة — كل إسناد يُحل إلى المدونة المحلية.{C_0}\n")
-        else:
+        if not report["passed"]:
             print(f"{C_R}✗ رُفضت المسودة — {len(report['problems'])} مشكلة إسناد.{C_0}")
             print(f"{C_D}  أعد الملف إلى مرحلة الصياغة. لا تُصحَّح الإسنادات بالتخمين:\n"
                   f"    python3 tools/corpus/corpus_cli.py search \"<الموضوع>\"{C_0}\n")
+        elif pending:
+            n = len(report["adjudicate"])
+            print(f"{C_Y}⏳ اجتاز فحص الوجود، و{n} إسناد يحتاج تحكيمًا دلاليًا.{C_0}")
+            print(f"{C_D}  المادة موجودة، لكن كونها تقول ما نُسب إليها لم يثبت آليًا.\n"
+                  f"  لا تُسلَّم الوثيقة قبل حسم هذه البنود.{C_0}\n")
+        else:
+            print(f"{C_G}✓ قُبلت المسودة — كل إسناد يُحل، ودلالته مسنودة.{C_0}\n")
 
-    if report["passed"] and args.render:
+    if args.worksheet and report["adjudicate"]:
+        write_worksheet(report, args.worksheet)
+        if not args.json:
+            print(f"{C_D}ورقة التحكيم: {args.worksheet}{C_0}\n")
+
+    # الوثيقة النهائية لا تُنتج ما دام هناك إسناد لم يُحسم.
+    if report["passed"] and not pending and args.render:
         args.render.parent.mkdir(parents=True, exist_ok=True)
         args.render.write_text(render_clean(args.file.read_text(encoding="utf-8")),
                                encoding="utf-8")
         if not args.json:
             print(f"{C_D}الوثيقة النهائية: {args.render}{C_0}\n")
 
-    return 0 if report["passed"] else 1
+    # 0 مقبولة · 1 مرفوضة · 3 تحتاج تحكيمًا — ليميّزها الخط
+    return 0 if report["passed"] and not pending else (3 if pending else 1)
 
 
 if __name__ == "__main__":

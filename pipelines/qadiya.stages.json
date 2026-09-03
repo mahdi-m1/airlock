@@ -11,15 +11,74 @@
         "instructionsBody": "املأ حقول هذه المرحلة من نص طلب العميل. الحقل غير المذكور يبقى فارغًا ويُدرج في naqs_almaalumat — لا تخمّنه. لا تكتب تحليلًا ولا تستشهد بأي نص."
       },
       "variables": [
-        { "key": "nawa_alnizaa", "label": "نوع النزاع", "type": "select", "options": ["عمالي", "مدني", "تجاري"], "required": true, "showInAddForm": true },
-        { "key": "sifat_alamil", "label": "صفة العميل", "type": "select", "options": ["مدعٍ", "مدعى عليه", "طالب رأي"], "required": true, "showInAddForm": true },
-        { "key": "nawa_almukhraj", "label": "المخرج المطلوب", "type": "select", "options": ["مذكرة", "مرافعة", "رأي"], "required": true, "showInAddForm": true },
-        { "key": "atraf", "label": "أطراف النزاع", "type": "multiline", "required": true },
-        { "key": "mawdue", "label": "موضوع النزاع", "type": "multiline", "required": true },
-        { "key": "tawarikh", "label": "التواريخ الحاسمة", "type": "multiline" },
-        { "key": "qimat_almutalaba", "label": "قيمة المطالبة (د.ب)", "type": "text" },
-        { "key": "mustanadat", "label": "المستندات المتوفرة", "type": "multiline" },
-        { "key": "naqs_almaalumat", "label": "المعلومات الناقصة", "type": "multiline" }
+        {
+          "key": "nawa_alnizaa",
+          "label": "نوع النزاع",
+          "type": "select",
+          "options": [
+            "عمالي",
+            "مدني",
+            "تجاري"
+          ],
+          "required": true,
+          "showInAddForm": true
+        },
+        {
+          "key": "sifat_alamil",
+          "label": "صفة العميل",
+          "type": "select",
+          "options": [
+            "مدعٍ",
+            "مدعى عليه",
+            "طالب رأي"
+          ],
+          "required": true,
+          "showInAddForm": true
+        },
+        {
+          "key": "nawa_almukhraj",
+          "label": "المخرج المطلوب",
+          "type": "select",
+          "options": [
+            "مذكرة",
+            "مرافعة",
+            "رأي"
+          ],
+          "required": true,
+          "showInAddForm": true
+        },
+        {
+          "key": "atraf",
+          "label": "أطراف النزاع",
+          "type": "multiline",
+          "required": true
+        },
+        {
+          "key": "mawdue",
+          "label": "موضوع النزاع",
+          "type": "multiline",
+          "required": true
+        },
+        {
+          "key": "tawarikh",
+          "label": "التواريخ الحاسمة",
+          "type": "multiline"
+        },
+        {
+          "key": "qimat_almutalaba",
+          "label": "قيمة المطالبة (د.ب)",
+          "type": "text"
+        },
+        {
+          "key": "mustanadat",
+          "label": "المستندات المتوفرة",
+          "type": "multiline"
+        },
+        {
+          "key": "naqs_almaalumat",
+          "label": "المعلومات الناقصة",
+          "type": "multiline"
+        }
       ]
     }
   },
@@ -35,9 +94,28 @@
         "instructionsBody": "افحص أطراف النزاع مقابل القضايا المفتوحة والمغلقة، شاملًا الشركات الأم والتابعة والشركاء والممثلين. احكم: مقبولة / تعارض / يحتاج فصلًا. عند الشك صعّد ولا تمرّر."
       },
       "variables": [
-        { "key": "qarar_altaarud", "label": "قرار التعارض", "type": "select", "options": ["مقبولة", "تعارض", "يحتاج فصلًا"], "required": true },
-        { "key": "sabab_alqarar", "label": "سبب القرار", "type": "multiline", "required": true },
-        { "key": "qadaya_mutaarida", "label": "القضايا المتعارضة", "type": "multiline" }
+        {
+          "key": "qarar_altaarud",
+          "label": "قرار التعارض",
+          "type": "select",
+          "options": [
+            "مقبولة",
+            "تعارض",
+            "يحتاج فصلًا"
+          ],
+          "required": true
+        },
+        {
+          "key": "sabab_alqarar",
+          "label": "سبب القرار",
+          "type": "multiline",
+          "required": true
+        },
+        {
+          "key": "qadaya_mutaarida",
+          "label": "القضايا المتعارضة",
+          "type": "multiline"
+        }
       ]
     }
   },
@@ -53,9 +131,23 @@
         "instructionsBody": "شغّل: python3 tools/corpus/corpus_cli.py search \"<الموضوع>\" --area <labour|civil|commercial>. صغ الاستعلامات بمصطلح القانون لا بلغة العميل. انقل المواد الحاكمة فقط، ولكل مادة: علامة الإسناد كما هي حرفيًا، حكمها في سطر، صلتها بواقعة بعينها. إن لم تجد سندًا كافيًا فصرّح بذلك وسمِّ التشريع الناقص — لا تستشهد من ذاكرتك."
       },
       "variables": [
-        { "key": "istialamat", "label": "الاستعلامات المستخدمة", "type": "multiline", "required": true },
-        { "key": "mawad_hakima", "label": "المواد الحاكمة (بعلامات الإسناد)", "type": "multiline", "required": true },
-        { "key": "naqs_almudawwana", "label": "نقص في المدونة", "type": "multiline" }
+        {
+          "key": "istialamat",
+          "label": "الاستعلامات المستخدمة",
+          "type": "multiline",
+          "required": true
+        },
+        {
+          "key": "mawad_hakima",
+          "label": "المواد الحاكمة (بعلامات الإسناد)",
+          "type": "multiline",
+          "required": true
+        },
+        {
+          "key": "naqs_almudawwana",
+          "label": "نقص في المدونة",
+          "type": "multiline"
+        }
       ]
     }
   },
@@ -71,12 +163,46 @@
         "instructionsBody": "أنزل الوقائع على النصوص التي أوردها الباحث. التزم الهيكل: المسائل، التكييف، القوة والضعف، دفوع الخصم والرد، التقدير، الإجراء والمواعيد. افحص التقادم أولًا. كل حكم قانوني يحمل علامة إسناد من قائمة الباحث — لا تستدعِ نصًا من ذاكرتك."
       },
       "variables": [
-        { "key": "masail", "label": "المسائل القانونية", "type": "multiline", "required": true },
-        { "key": "takyif", "label": "التكييف القانوني", "type": "multiline", "required": true },
-        { "key": "quwa_daaf", "label": "القوة والضعف", "type": "multiline", "required": true },
-        { "key": "dufue_alkhasm", "label": "دفوع الخصم المتوقعة والرد", "type": "multiline" },
-        { "key": "taqdir", "label": "التقدير", "type": "select", "options": ["قوي", "متوازن", "ضعيف"], "required": true },
-        { "key": "ijraa_mawaid", "label": "الإجراء والمواعيد", "type": "multiline", "required": true }
+        {
+          "key": "masail",
+          "label": "المسائل القانونية",
+          "type": "multiline",
+          "required": true
+        },
+        {
+          "key": "takyif",
+          "label": "التكييف القانوني",
+          "type": "multiline",
+          "required": true
+        },
+        {
+          "key": "quwa_daaf",
+          "label": "القوة والضعف",
+          "type": "multiline",
+          "required": true
+        },
+        {
+          "key": "dufue_alkhasm",
+          "label": "دفوع الخصم المتوقعة والرد",
+          "type": "multiline"
+        },
+        {
+          "key": "taqdir",
+          "label": "التقدير",
+          "type": "select",
+          "options": [
+            "قوي",
+            "متوازن",
+            "ضعيف"
+          ],
+          "required": true
+        },
+        {
+          "key": "ijraa_mawaid",
+          "label": "الإجراء والمواعيد",
+          "type": "multiline",
+          "required": true
+        }
       ]
     }
   },
@@ -88,13 +214,27 @@
     "config": {
       "whatHappensHere": "كتابة المخرج وفق القالب الثابت. الصائغ يكتب التسبيب لا الهيكل ولا الوقائع.",
       "_assigneeAgentSlug": "memo-drafter",
-      "_assigneeByVariable": { "variable": "nawa_almukhraj", "map": { "مرافعة": "pleadings-drafter" } },
+      "_assigneeByVariable": {
+        "variable": "nawa_almukhraj",
+        "map": {
+          "مرافعة": "pleadings-drafter"
+        }
+      },
       "automation": {
         "instructionsBody": "اتبع القالب في مهارتك حرفيًا. ضع علامة إسناد بعد كل إشارة قانونية. قبل التسليم شغّل بنفسك: python3 tools/citation-gate/gate.py <الملف> --kind <memo|pleading> — ولا تسلّم مسودة تعرف أنها سترد. عند الرد عالج السبب تحديدًا: لا تحذف علامة ولا تبدّل رقم مادة حتى تمر."
       },
       "variables": [
-        { "key": "masar_almusawwada", "label": "مسار ملف المسودة", "type": "text", "required": true },
-        { "key": "jawla_alsiyagha", "label": "جولة الصياغة", "type": "text" }
+        {
+          "key": "masar_almusawwada",
+          "label": "مسار ملف المسودة",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "jawla_alsiyagha",
+          "label": "جولة الصياغة",
+          "type": "text"
+        }
       ]
     }
   },
@@ -104,7 +244,7 @@
     "kind": "review",
     "position": 600,
     "config": {
-      "whatHappensHere": "بوابة الإسناد الحتمية، ثم التحقق الدلالي من أن المادة تقول فعلًا ما نُسب إليها.",
+      "whatHappensHere": "طبقتان: بوابة حتمية تثبت وجود المادة وتلتقط التحريف القابل للقياس، ثم تحكيم يدوي مهيكل للبنود التي لم تثبت دلالتها آليًا.",
       "_approverAgentSlug": "citation-verifier",
       "approveToStageKey": "murajaa",
       "requestChangesToStageKey": "siyagha",
@@ -112,12 +252,35 @@
       "requireRejectReason": true,
       "requireRequestChangesReason": true,
       "automation": {
-        "instructionsBody": "شغّل: python3 tools/citation-gate/gate.py <المسودة> --kind <memo|pleading> --json. البوابة هي الحَكَم لا رأيك. عند الفشل اطلب تعديلًا وأعد نص المشاكل كما هو دون تلخيص. عند النجاح افحص كل مادة بـ corpus article وتحقق أن مضمونها يسند الحجة فعلًا — إسناد يُحل لكنه لا يسند الحجة يُرد، وهو أخطر ما يمر على البوابة."
+        "instructionsBody": "شغّل: python3 tools/citation-gate/gate.py <المسودة> --kind <memo|pleading> --worksheet cases/<رقم>/tahkim.md --json\n\nرمز الخروج يحكم ولا تجتهد خلافه: 0 ⇒ اعتماد. 1 ⇒ اطلب تعديلًا وأعد نص المشاكل كما هو دون تلخيص. 3 ⇒ املأ ورقة التحكيم بندًا بندًا: لكل بند حكم واحد (مسنود | جزئي | غير مسنود) مع نقل العبارة الحاملة من نص المادة حرفيًا. بند واحد «غير مسنود» أو «جزئي» ⇒ اطلب تعديلًا. لا تحكم بـ«مسنود» دون عبارة حاملة، ولا تستنتج من روح النص: النص المعروض في الورقة هو كل ما في المدونة."
       },
       "variables": [
-        { "key": "natijat_albawwaba", "label": "نتيجة بوابة الإسناد", "type": "select", "options": ["نجحت", "فشلت"], "required": true },
-        { "key": "isnadat_muhalla", "label": "عدد الإسنادات المُحلّة", "type": "text" },
-        { "key": "mushkilat_alisnad", "label": "مشاكل الإسناد", "type": "multiline" }
+        {
+          "key": "natijat_albawwaba",
+          "label": "رمز خروج البوابة",
+          "type": "select",
+          "options": [
+            "0 مقبولة",
+            "1 مردودة",
+            "3 تحتاج تحكيمًا"
+          ],
+          "required": true
+        },
+        {
+          "key": "isnadat_muhalla",
+          "label": "عدد الإسنادات المُحلّة",
+          "type": "text"
+        },
+        {
+          "key": "bunud_altahkim",
+          "label": "بنود التحكيم الدلالي وأحكامها",
+          "type": "multiline"
+        },
+        {
+          "key": "mushkilat_alisnad",
+          "label": "مشاكل الإسناد",
+          "type": "multiline"
+        }
       ]
     }
   },
@@ -138,8 +301,22 @@
         "instructionsBody": "راجع بالترتيب وتوقف عند أول عطب جوهري: الاكتمال، الاتساق، سلامة الاستدلال، الإجراء، اللغة، الصدق. طلب التعديل يوجب سببًا بندًا بندًا قابلًا للتنفيذ. إن كانت هذه الجولة الثالثة من الرد، صعّد للشريك المدير بدل الرد."
       },
       "variables": [
-        { "key": "qarar_almurajaa", "label": "قرار المراجعة", "type": "select", "options": ["اعتماد", "طلب تعديل", "تصعيد"], "required": true },
-        { "key": "asbab_altaadil", "label": "أسباب التعديل (بندًا بندًا)", "type": "multiline" }
+        {
+          "key": "qarar_almurajaa",
+          "label": "قرار المراجعة",
+          "type": "select",
+          "options": [
+            "اعتماد",
+            "طلب تعديل",
+            "تصعيد"
+          ],
+          "required": true
+        },
+        {
+          "key": "asbab_altaadil",
+          "label": "أسباب التعديل (بندًا بندًا)",
+          "type": "multiline"
+        }
       ]
     }
   },
@@ -155,10 +332,25 @@
         "instructionsBody": "تأكد أن بوابة الإسناد مرّت وأن المراجع اعتمد. ولّد الوثيقة النهائية بلا علامات آلية: python3 tools/citation-gate/gate.py <المسودة> --kind <memo|pleading> --render cases/<رقم>/<اسم الملف>.md — الأمر يكتب الوثيقة النظيفة فقط عند نجاح البوابة."
       },
       "variables": [
-        { "key": "masar_altaslim", "label": "مسار الوثيقة النهائية", "type": "text", "required": true }
+        {
+          "key": "masar_altaslim",
+          "label": "مسار الوثيقة النهائية",
+          "type": "text",
+          "required": true
+        }
       ]
     }
   },
-  { "key": "munjaza", "name": "منجزة", "kind": "done", "position": 900 },
-  { "key": "mughlaqa", "name": "مغلقة", "kind": "cancelled", "position": 1000 }
+  {
+    "key": "munjaza",
+    "name": "منجزة",
+    "kind": "done",
+    "position": 900
+  },
+  {
+    "key": "mughlaqa",
+    "name": "مغلقة",
+    "kind": "cancelled",
+    "position": 1000
+  }
 ]

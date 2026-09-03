@@ -189,6 +189,29 @@ class Corpus:
                 break
         return hits
 
+    def term_idf(self) -> dict[str, float]:
+        """وزن ندرة كل مصطلح في المدونة (IDF) — لقياس التداخل الدلالي.
+
+        Boilerplate that appears in most provisions («العامل»، «يستحق»،
+        «أحكام») must not make an unrelated article look supportive. Rarity
+        weighting is what separates a claim's distinctive terms from the
+        vocabulary every labour article shares.
+        """
+        import math
+
+        from .arabic import fold, stem
+        df: dict[str, int] = {}
+        total = 0
+        for row in self.db.execute("SELECT a.text FROM articles a "
+                                   "JOIN instruments i ON i.id=a.instrument_id "
+                                   "WHERE i.verified=1"):
+            total += 1
+            for t in {stem(w) for w in fold(row["text"]).split() if len(w) > 2}:
+                df[t] = df.get(t, 0) + 1
+        if not total:
+            return {}
+        return {t: math.log((total + 1) / (n + 0.5)) for t, n in df.items()}
+
     def stats(self) -> dict:
         q = lambda s: self.db.execute(s).fetchone()[0]  # noqa: E731
         oldest = self.db.execute(
