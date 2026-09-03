@@ -1,0 +1,87 @@
+# ═══════════════════════════════════════════════════════════════════════
+#  ضبط وقت التشغيل — المرجع الحاكم، يطبّقه scripts/provision.sh
+#
+#  لماذا هنا لا في .paperclip.yaml: المستورد يعطّل مؤقتات الheartbeat ويجرّد
+#  حقول runtime عند الاستيراد، وبعض المفاتيح الأنفع في خفض التوكنز
+#  (skipTimerWhenNoActionableWork, maxDailyRuns, maxDailyCostCents) لا تظهر
+#  أصلًا في واجهة Paperclip. تطبيقها عبر PATCH /api/agents/:id مضمون.
+# ═══════════════════════════════════════════════════════════════════════
+
+schema: airlock-agents/v1
+
+# ── الافتراضات: تُطبَّق على كل وكيل ثم تُلغى بما في overrides ─────────────
+defaults:
+  adapter:
+    engine: cli              # واجب: محرّك ACP مرفوض عند تفعيل عزل الشبكة
+    filesystemScope: workspace
+    networkScope: allowlist
+    # قائمة السماح لمسار القضايا: واجهة النموذج فقط.
+    # واجهة Paperclip المحلية وبوابات MCP تُضاف تلقائيًا كعناوين موثوقة.
+    networkAllowlist:
+      - api.anthropic.com
+    maxTurnsPerRun: 40       # الافتراضي في الواجهة 1000 — سقف بلا معنى
+    timeoutSec: 900
+
+  runtime:
+    heartbeat:
+      # لا نبضات على مؤقت. الوكيل يستيقظ عند إسناد عمل له فقط.
+      enabled: false
+      intervalSec: 0
+      wakeOnAssignment: true
+      wakeOnDemand: true
+      # لو فُعّل المؤقت لاحقًا: لا توقظه بلا عمل فعلي. النبضة الفارغة تحمّل
+      # الموجّه كاملًا (تعليمات + مهارات + سياق) وتنتهي بلا شيء.
+      skipTimerWhenNoActionableWork: true
+      # الافتراضي 20 تشغيلًا متزامنًا — مرتفع جدًا لمكتب قضايا.
+      maxConcurrentRuns: 2
+      # سقوف يومية: الميزانيات في المنصة شهرية فقط، وهذه أضيق حلقة أمان.
+      maxDailyRuns: 40
+      maxDailyCostCents: 2000
+      # الاستئناف التلقائي بعد استنفاد الأدوار مفعّل افتراضيًا بمحاولتين،
+      # فيضاعف كلفة أي تشغيل متعثر بصمت.
+      maxTurnContinuation:
+        enabled: false
+
+# ── استثناءات لكل وكيل ────────────────────────────────────────────────
+overrides:
+
+  # أمين المصادر: المسار الشبكي الثاني. قائمة سماحه تُولَّد من
+  # corpus/sources.yaml → domains بواسطة provision.sh، ولا تحوي api.anthropic.com
+  # وحدها بل النطاقات الرسمية أيضًا. يعمل في مشروع منفصل بلا وصول لبيانات القضايا.
+  archivist:
+    network_lane: masadir      # يقرأها provision.sh لبناء قائمة السماح
+    runtime:
+      heartbeat:
+        maxDailyRuns: 12
+        maxDailyCostCents: 800
+
+  # القيد وفحص التعارض: أدوار قصيرة ومحددة.
+  intake-clerk:
+    adapter: { maxTurnsPerRun: 12 }
+    runtime: { heartbeat: { maxDailyCostCents: 600 } }
+  conflict-checker:
+    adapter: { maxTurnsPerRun: 12 }
+    runtime: { heartbeat: { maxDailyCostCents: 600 } }
+
+  # الباحث يستدعي أداة المدونة مرات متعددة في الدور الواحد.
+  legal-researcher:
+    adapter: { maxTurnsPerRun: 25 }
+
+  # الصياغة تحتاج مدى أطول: مسودة كاملة ثم تشغيل البوابة ثم تصحيح.
+  memo-drafter:
+    adapter: { maxTurnsPerRun: 60 }
+  pleadings-drafter:
+    adapter: { maxTurnsPerRun: 60 }
+
+  # الشريك المدير ينسّق ولا ينتج نصًا طويلًا.
+  partner-manager:
+    adapter: { maxTurnsPerRun: 25 }
+
+# ── المهارات المركّبة لكل وكيل ────────────────────────────────────────
+# أكبر مستهلك مفرد للتوكنز في المنصة هو مهارة التشغيل `paperclip` وحدها
+# (نحو 55 كيلوبايت ≈ 14 ألف توكن)، وتُركَّب قسرًا على كل تشغيل. لا يمكن نزعها
+# على المحوّلات القديمة، لكن يمكن منع تراكم غيرها: وكلاء الـCEO يُمنحون خمس
+# مهارات (~95 كيلوبايت) تلقائيًا. نقصر كل وكيل على مهاراته المعلنة فقط.
+skills:
+  mode: declared_only        # لا مهارات إضافية خارج ما في AGENTS.md
+  strip_ceo_defaults: true   # نزع الحزمة الافتراضية عن الشريك المدير

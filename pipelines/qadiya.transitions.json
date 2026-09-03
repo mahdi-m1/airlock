@@ -1,0 +1,30 @@
+{
+  "enforceTransitions": true,
+  "_comment": "الانتقالات المسموحة حصرًا. enforceTransitions يجعل المحرّك يرفض أي انتقال غير مذكور هنا — فلا يستطيع وكيل تخطي البحث إلى الصياغة، ولا تسليم مسودة لم تمر بتدقيق الإسناد والمراجعة. هذا هو ما يجعل تنفيذ الأدوار مستقرًا ومتناسقًا بالمحرّك لا بالتعليمات.",
+  "transitions": [
+    { "fromStageKey": "qaid",         "toStageKey": "fahs_taarud",  "label": "اكتمل القيد" },
+    { "fromStageKey": "qaid",         "toStageKey": "mughlaqa",     "label": "سحب الطلب" },
+
+    { "fromStageKey": "fahs_taarud",  "toStageKey": "bahth",        "label": "لا تعارض — قبول" },
+    { "fromStageKey": "fahs_taarud",  "toStageKey": "mughlaqa",     "label": "تعارض مصالح — اعتذار" },
+
+    { "fromStageKey": "bahth",        "toStageKey": "tahlil",       "label": "اكتمل البحث" },
+    { "fromStageKey": "bahth",        "toStageKey": "mughlaqa",     "label": "نقص في المدونة يتعذر سده" },
+
+    { "fromStageKey": "tahlil",       "toStageKey": "siyagha",      "label": "اكتمل التحليل" },
+    { "fromStageKey": "tahlil",       "toStageKey": "bahth",        "label": "يلزم سند إضافي" },
+    { "fromStageKey": "tahlil",       "toStageKey": "mughlaqa",     "label": "لا محل للسير" },
+
+    { "fromStageKey": "siyagha",      "toStageKey": "tadqiq_isnad", "label": "المسودة جاهزة" },
+
+    { "fromStageKey": "tadqiq_isnad", "toStageKey": "murajaa",      "label": "اجتاز تدقيق الإسناد" },
+    { "fromStageKey": "tadqiq_isnad", "toStageKey": "siyagha",      "label": "رد لتصحيح الإسناد" },
+    { "fromStageKey": "tadqiq_isnad", "toStageKey": "mughlaqa",     "label": "تعذر الإسناد" },
+
+    { "fromStageKey": "murajaa",      "toStageKey": "taslim",       "label": "اعتماد" },
+    { "fromStageKey": "murajaa",      "toStageKey": "siyagha",      "label": "طلب تعديل" },
+    { "fromStageKey": "murajaa",      "toStageKey": "mughlaqa",     "label": "رفض نهائي" },
+
+    { "fromStageKey": "taslim",       "toStageKey": "munjaza",      "label": "سُلّمت" }
+  ]
+}

@@ -1,0 +1,135 @@
+# امتداد Paperclip لحزمة المكتب.
+#
+# هذا الملف يحمل ما يقرأه المستورد بثقة: نوع المحوّل، النموذج، الميزانية، الصلاحيات.
+# ضبط وقت التشغيل الدقيق (عزل الشبكة، السقوف اليومية، التزامن) يعيش في
+# `config/agents.yaml` ويطبّقه `scripts/provision.sh` عبر الواجهة البرمجية بعد
+# الاستيراد — لأن المستورد يعطّل مؤقتات الheartbeat ويجرّد بعض حقول runtime،
+# فالاعتماد عليه وحده يترك المكتب بإعدادات غير التي قصدناها.
+#
+# التوجيه النموذجي هنا هو رافعة التوكنز الأولى: الأدوار الميكانيكية على نموذج
+# اقتصادي، والاجتهاد القانوني وحده على نموذج قوي.
+
+schema: paperclip/v1
+
+company:
+  requireBoardApprovalForNewAgents: true
+  feedbackDataSharingEnabled: false
+
+sidebar:
+  agents:
+    - partner-manager
+    - intake-clerk
+    - conflict-checker
+    - legal-researcher
+    - case-analyst
+    - memo-drafter
+    - pleadings-drafter
+    - citation-verifier
+    - quality-reviewer
+    - archivist
+
+labels:
+  - { name: "عمالي", color: "#0ea5e9" }
+  - { name: "مدني", color: "#6366f1" }
+  - { name: "تجاري", color: "#f59e0b" }
+  - { name: "نقص-مدونة", color: "#ef4444" }
+  - { name: "تعارض-مصالح", color: "#dc2626" }
+
+agents:
+  # ── الطبقة القوية: الاجتهاد القانوني ──
+  partner-manager:
+    role: ceo
+    capabilities: "قبول القضايا وتوزيعها والاعتماد النهائي والتسليم المحلي"
+    adapter:
+      type: claude_local
+      config: { model: claude-opus-5, engine: cli }
+    budgetMonthlyCents: 40000
+    permissionGrants:
+      - permissionKey: tasks:assign
+      - permissionKey: pipelines:write
+
+  case-analyst:
+    role: general
+    reportsTo: partner-manager
+    capabilities: "التكييف القانوني وتقدير المخاطر والدفوع المتوقعة"
+    adapter:
+      type: claude_local
+      config: { model: claude-opus-5, engine: cli }
+    budgetMonthlyCents: 30000
+
+  memo-drafter:
+    role: general
+    reportsTo: partner-manager
+    capabilities: "صياغة المذكرات القانونية بالعربية"
+    adapter:
+      type: claude_local
+      config: { model: claude-opus-5, engine: cli }
+    budgetMonthlyCents: 30000
+
+  pleadings-drafter:
+    role: general
+    reportsTo: partner-manager
+    capabilities: "صياغة المرافعات وصحف الدعاوى ولوائح الطعن"
+    adapter:
+      type: claude_local
+      config: { model: claude-opus-5, engine: cli }
+    budgetMonthlyCents: 30000
+
+  quality-reviewer:
+    role: qa
+    reportsTo: partner-manager
+    capabilities: "المراجعة القانونية النهائية والاعتماد"
+    adapter:
+      type: claude_local
+      config: { model: claude-opus-5, engine: cli }
+    budgetMonthlyCents: 25000
+
+  # ── الطبقة المتوسطة: استرجاع وتحقق دلالي ──
+  legal-researcher:
+    role: researcher
+    reportsTo: partner-manager
+    capabilities: "البحث المقتطع في المدونة المحلية واستخراج المواد الحاكمة"
+    adapter:
+      type: claude_local
+      config: { model: claude-sonnet-5, engine: cli }
+    budgetMonthlyCents: 20000
+
+  # مدقق الإسناد على الطبقة المتوسطة لا الاقتصادية عمدًا: البوابة الحتمية تتكفل
+  # بوجود المادة، أما فحص أن المادة تقول فعلًا ما نُسب إليها فاجتهاد — وهو أنفع
+  # فحص في المكتب كله، لأنه العطب الوحيد الذي يعبر البوابة.
+  citation-verifier:
+    role: qa
+    reportsTo: partner-manager
+    capabilities: "تشغيل بوابة الإسناد والتحقق الدلالي من مطابقة النص للحجة"
+    adapter:
+      type: claude_local
+      config: { model: claude-sonnet-5, engine: cli }
+    budgetMonthlyCents: 15000
+
+  # ── الطبقة الاقتصادية: أدوار ميكانيكية ──
+  intake-clerk:
+    role: general
+    reportsTo: partner-manager
+    capabilities: "استخراج حقول القضية المهيكلة من طلب العميل"
+    adapter:
+      type: claude_local
+      config: { model: claude-haiku-4-5-20251001, engine: cli }
+    budgetMonthlyCents: 6000
+
+  conflict-checker:
+    role: general
+    reportsTo: partner-manager
+    capabilities: "فحص تعارض المصالح عبر القضايا المفتوحة والمغلقة"
+    adapter:
+      type: claude_local
+      config: { model: claude-haiku-4-5-20251001, engine: cli }
+    budgetMonthlyCents: 6000
+
+  archivist:
+    role: researcher
+    reportsTo: partner-manager
+    capabilities: "استيراد التشريعات من المصادر الرسمية وصيانة المدونة - معزول عن بيانات القضايا"
+    adapter:
+      type: claude_local
+      config: { model: claude-haiku-4-5-20251001, engine: cli }
+    budgetMonthlyCents: 8000

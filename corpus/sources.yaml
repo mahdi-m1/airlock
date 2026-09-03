@@ -1,0 +1,157 @@
+# ═══════════════════════════════════════════════════════════════════════
+#  سجل المصادر الرسمية — مملكة البحرين
+#  Official source registry. Two jobs:
+#    1. `domains` هي قائمة السماح الشبكية لوكيل المصادر (archivist) وحده.
+#       scripts/provision.sh يقرأها ويحقنها في networkAllowlist.
+#       أي نطاق غير مذكور هنا لا يستطيع الوكيل بلوغه — فرض بـbwrap لا بالتعليمات.
+#    2. `instruments` قائمة التشريعات المطلوب استيرادها للمدونة المحلية.
+#
+#  ⚠ تنبيه صدق مهم:
+#  أرقام وسنوات التشريعات أدناه هي **مرشّحات للتحقق** وليست حقائق مثبتة.
+#  لم يُتحقق منها آليًا (بيئة البناء تحجب النطاقات البحرينية).
+#  خط الاستيراد `tools/ingest` يقارن كل عنوان ورقم بالنص الرسمي المُنزَّل
+#  ويضع `verified: true` فقط بعد المطابقة، ويرفع تعارضًا عند الاختلاف.
+#  لا يُسمح لأي وكيل بالاستشهاد بتشريع لم يُستورد ويُتحقق منه.
+# ═══════════════════════════════════════════════════════════════════════
+
+schema: airlock-sources/v1
+jurisdiction: BH
+
+# ── قائمة السماح الشبكية لوكيل المصادر ────────────────────────────────
+domains:
+  - host: legislation.bh
+    name: هيئة التشريع والرأي القانوني
+    role: primary          # المصدر الأساسي للتشريعات والجريدة الرسمية
+    note: بوابة التشريعات والجريدة الرسمية
+  - host: www.legislation.bh
+    name: هيئة التشريع والرأي القانوني
+    role: primary
+  - host: bahrain.bh
+    name: البوابة الوطنية للحكومة الإلكترونية
+    role: portal
+  - host: www.bahrain.bh
+    name: البوابة الوطنية للحكومة الإلكترونية
+    role: portal
+  - host: moj.gov.bh
+    name: وزارة العدل والشؤون الإسلامية والأوقاف
+    role: ministry
+  - host: www.moj.gov.bh
+    name: وزارة العدل والشؤون الإسلامية والأوقاف
+    role: ministry
+  - host: lmra.gov.bh
+    name: هيئة تنظيم سوق العمل
+    role: authority
+  - host: www.lmra.gov.bh
+    name: هيئة تنظيم سوق العمل
+    role: authority
+  - host: mlsd.gov.bh
+    name: وزارة العمل
+    role: ministry
+  - host: moic.gov.bh
+    name: وزارة الصناعة والتجارة
+    role: ministry
+  - host: www.moic.gov.bh
+    name: وزارة الصناعة والتجارة
+    role: ministry
+  - host: sijilat.bh
+    name: السجل التجاري (سجلات)
+    role: authority
+  - host: cbb.gov.bh
+    name: مصرف البحرين المركزي
+    role: authority
+  - host: www.cbb.gov.bh
+    name: مصرف البحرين المركزي
+    role: authority
+
+# ── التشريعات المطلوبة ────────────────────────────────────────────────
+# type: law (قانون) | dl (مرسوم بقانون) | dec (مرسوم) | ord (قرار وزاري)
+# رمز الاستشهاد المُولَّد: ⟦BH:<type>:<number>/<year>:م<article>⟧
+instruments:
+
+  # ── عمالي ──
+  - key: labour-private-sector
+    type: law
+    number: 36
+    year: 2012
+    title: قانون العمل في القطاع الأهلي
+    practice_areas: [labour]
+    verified: false
+  - key: lmra
+    type: law
+    number: 19
+    year: 2006
+    title: قانون تنظيم سوق العمل
+    practice_areas: [labour]
+    verified: false
+
+  # ── مدني ──
+  - key: civil-code
+    type: dl
+    number: 19
+    year: 2001
+    title: القانون المدني
+    practice_areas: [civil, commercial]
+    verified: false
+  - key: civil-commercial-procedure
+    type: dl
+    number: 12
+    year: 1971
+    title: قانون المرافعات المدنية والتجارية
+    practice_areas: [civil, commercial, labour]
+    verified: false
+  - key: evidence
+    type: dl
+    number: 14
+    year: 1996
+    title: قانون الإثبات في المواد المدنية والتجارية
+    practice_areas: [civil, commercial]
+    verified: false
+
+  # ── تجاري ──
+  - key: commercial-code
+    type: dl
+    number: 7
+    year: 1987
+    title: قانون التجارة
+    practice_areas: [commercial]
+    verified: false
+  - key: commercial-companies
+    type: dl
+    number: 21
+    year: 2001
+    title: قانون الشركات التجارية
+    practice_areas: [commercial]
+    verified: false
+  - key: commercial-register
+    type: law
+    number: 27
+    year: 2015
+    title: قانون السجل التجاري
+    practice_areas: [commercial]
+    verified: false
+  - key: arbitration
+    type: law
+    number: 9
+    year: 2015
+    title: قانون التحكيم
+    practice_areas: [commercial, civil]
+    verified: false
+  - key: bankruptcy
+    type: law
+    number: 22
+    year: 2018
+    title: قانون إعادة التنظيم والإفلاس
+    practice_areas: [commercial]
+    verified: false
+
+# ── إعدادات الاستيراد ─────────────────────────────────────────────────
+ingest:
+  # مجلد التجهيز: الملفات الرسمية المُنزَّلة (HTML/نص) قبل التحليل.
+  staging_dir: corpus/staging
+  # مخرجات المدونة (لا تُرفع للمستودع — انظر corpus/.gitignore)
+  index_db: corpus/index/corpus.db
+  records_jsonl: corpus/index/records.jsonl
+  user_agent: "airlock-legal-office/1.0 (local legal corpus ingest)"
+  request_timeout_sec: 30
+  # التحقق من العنوان: نسبة التطابق الدنيا بين العنوان المُعلن والنص المُستورد
+  title_match_threshold: 0.6

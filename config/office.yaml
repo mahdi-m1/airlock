@@ -1,0 +1,44 @@
+# إعدادات مكتب الاستشارات القانونية
+# Office configuration — single source of truth for office-wide behaviour.
+# يُقرأ من: tools/citation-gate, tools/corpus, scripts/provision.sh, وقوالب المخرجات.
+
+office:
+  name: "مكتب الاستشارات القانونية"
+  slug: maktab
+  jurisdiction: BH            # مملكة البحرين
+  language: ar                # لغة كل المخرجات — العربية فقط
+  timezone: Asia/Bahrain
+
+# وسم المسودات — القرار النظامي.
+# المرافعة أمام المحاكم البحرينية وممارسة المحاماة مقيدة بالمحامين المقيدين لدى وزارة العدل
+# وفق قانون المحاماة. عند true تُختم كل مذكرة ومرافعة بترويسة تفيد أنها مسودة تتطلب
+# اعتماد محامٍ مقيّد قبل الإيداع.
+output:
+  draft_watermark: true
+  draft_notice: >-
+    مسودة — أُعدّت آليًا وتتطلب اعتماد محامٍ مقيّد لدى وزارة العدل قبل الإيداع أو الاعتماد.
+  deliverables_dir: cases      # المخرجات محلية فقط تحت هذا المسار
+
+# نطاق التغطية القانونية
+scope:
+  practice_areas:
+    - civil        # مدني
+    - commercial   # تجاري
+    - labour       # عمالي
+
+# بوابة الإسناد — لا إسناد بلا سند في المدونة المحلية.
+citations:
+  # لا يُسمح بأي إسناد لا يُحل إلى سجل موجود في corpus/index.
+  require_resolvable: true
+  # الحد الأدنى من الإسنادات في المذكرة/المرافعة قبل قبولها.
+  min_citations_memo: 2
+  min_citations_pleading: 2
+  # عمر المدونة المسموح قبل التنبيه لإعادة الاستيراد (بالأيام).
+  max_corpus_age_days: 90
+
+# حدود التكلفة — تُطبَّق بواسطة scripts/provision.sh على كل وكيل.
+budget:
+  company_monthly_cents: 200000     # سقف الشركة الشهري
+  default_agent_monthly_cents: 20000
+  default_max_daily_runs: 40
+  default_max_daily_cost_cents: 2000
