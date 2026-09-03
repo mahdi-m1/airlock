@@ -165,7 +165,7 @@ CATALOG = ("<html><body><ul>"
            "<li><a href='https://mirror.example.com/civil'>القانون المدني</a></li>"
            "</ul></body></html>")
 
-from lib import discover  # noqa: E402
+from lib import discover, documents  # noqa: E402
 
 found = discover.links(CATALOG, f"{BASE}/ElectronicLibrary")
 check("javascript: لا يُلتقط", all("javascript" not in x.url for x in found), True)
@@ -187,6 +187,43 @@ check("النوع يميّز المرسوم بقانون", hits["civil"][0].url,
 check("رقم صحيح بسنة خاطئة لا يُرشَّح",
       any(c.url.endswith("K3614") for c in hits["labour"]), False)
 check("تشريع لا وجود له في الفهرس: لا مرشّح", "ghost" in hits, False)
+
+# ── نمط الفهرس: العنوان في الصف والرابط كلمة «تحميل» إلى ملف PDF ──
+PDF_CATALOG = ("<html><body><table>"
+               "<tr><td>قانون رقم (\u0663\u0666) لسنة \u0662\u0660\u0661\u0662 "
+               "بإصدار قانون العمل في القطاع الأهلي</td>"
+               "<td><a href='/f/K3612.pdf'>تحميل</a></td></tr>"
+               "<tr><td>قانون رقم (36) لسنة 2014 في شأن آخر</td>"
+               "<td><a href='/f/x.pdf'>تحميل</a></td></tr>"
+               "</table></body></html>")
+pdf_links = discover.links(PDF_CATALOG, f"{BASE}/ElectronicLibrary")
+check("سياق الرابط يُلتقط من الصف", "القطاع الأهلي" in pdf_links[0].context, True)
+check("والكتلة التي لا تحوي غير الرابط تُتخطى",
+      pdf_links[0].context.strip() != "تحميل", True)
+pdf_hits = discover.match([INSTS[0]], pdf_links)
+check("رابط PDF بنص شحيح يُطابَق من سياقه",
+      pdf_hits["labour"][0].url, f"{BASE}/f/K3612.pdf")
+check("ويُعلَن أن المطابقة من السياق", pdf_hits["labour"][0].from_context, True)
+check("ولا يُسجَّل آليًا مهما علا ترجيحه", pdf_hits["labour"][0].strong, False)
+check("ولا يتسرّب سياق صف إلى صف آخر",
+      any(c.url.endswith("x.pdf") for c in pdf_hits["labour"]), False)
+check("المعروض هو ما طابق فعلًا",
+      "القطاع الأهلي" in pdf_hits["labour"][0].text, True)
+
+# كتلة واحدة ضخمة تبتلع الصفحة: سياق بلا حدود يطابق كل شيء بكل شيء
+BIG = ("<html><body><div>" + ("حشو " * 200)
+       + "قانون رقم (36) لسنة 2012 بإصدار قانون العمل في القطاع الأهلي"
+       + "<a href='/f/z.pdf'>تحميل</a></div></body></html>")
+big_links = discover.links(BIG, f"{BASE}/x")
+check("كتلة أكبر من الحد لا تُتخذ سياقًا", big_links[0].context, "")
+
+print("\n── تنبيه الخلفيات الناقصة ──")
+have_pdf = documents.available_backends().get("pdf")
+warn_fetch = bc.backend_warnings([{"action": "fetch", "file": None}])
+check("تنبيه PDF يظهر حين تنقص خلفيته",
+      bool(warn_fetch) == (not have_pdf), True)
+check("ولا تنبيه بلا تنزيل ولا ملف",
+      bc.backend_warnings([{"action": "manual", "file": None}]), [])
 
 # ── الدورة كاملة عبر الشبكة المحلية، مع الكتابة في السجل ──
 import re as _re  # noqa: E402

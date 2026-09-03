@@ -254,8 +254,10 @@ def cmd_discover(src: dict, catalogs: list[str], instruments: list[dict],
             else:
                 print(f"     {C_R}✗ لم يُسجَّل:{C_0} {why}")
         elif write:
-            print(f"     {C_Y}لم يُسجَّل آليًا{C_0} {C_D}— الترجيح دون العتبة "
-                  f"القاطعة. راجعه بنفسك.{C_0}")
+            why = ("المطابقة من سياق الصفحة لا من نص الرابط"
+                   if top.from_context else "الترجيح دون العتبة القاطعة")
+            print(f"     {C_Y}لم يُسجَّل آليًا{C_0} {C_D}— {why}. افتح الرابط "
+                  f"وتأكد أنه التشريع بعينه.{C_0}")
         print(f"     python3 tools/ingest/ingest.py --set-provenance {inst['key']} \\")
         print(f"         --url \"{top.url}\" --gazette <العدد> --date YYYY-MM-DD\n")
 
@@ -269,6 +271,26 @@ def cmd_discover(src: dict, catalogs: list[str], instruments: list[dict],
           f"  عند الاستيراد بمقارنة العنوان بالنص المُنزَّل.{C_0}\n")
     print(f"  ثم:  {C_B}python3 scripts/build-corpus.py{C_0}\n")
     return 0
+
+
+def backend_warnings(plan: list[dict]) -> list[str]:
+    """تنبيه مبكر عن خلفية استخراج ناقصة.
+
+    الفهارس الرسمية تقدّم أكثر التشريعات بصيغة PDF، فبلا خلفية قراءة يفشل
+    التحويل بعد التنزيل لا قبله. قوله هنا يوفّر عليك تنزيل عشرة ملفات لتكتشف
+    أن أيًّا منها لن يُقرأ.
+    """
+    have = documents.available_backends()
+    out = []
+    staged_pdf = any(p["file"] and p["file"].suffix.lower() == ".pdf" for p in plan)
+    if not have.get("pdf") and (staged_pdf or any(p["action"] == "fetch" for p in plan)):
+        out.append("لا خلفية لقراءة PDF — وأكثر ما تقدّمه الفهارس الرسمية PDF."
+                   + (" ملفات PDF مُجهَّزة لن تُقرأ. " if staged_pdf else " ")
+                   + "ثبّتها:  sudo apt install poppler-utils")
+    if not have.get("ocr") and staged_pdf:
+        out.append("لا تعرّف ضوئي (OCR) — وPDF ممسوح ضوئيًا بلا طبقة نصية "
+                   "سيُرفض:  sudo apt install tesseract-ocr tesseract-ocr-ara")
+    return out
 
 
 def run(cmd: list[str]) -> int:
@@ -341,7 +363,10 @@ def main() -> int:
         if p["gap"]:
             print(f"      {C_D}ينقص التوثيق: {'، '.join(p['gap'])} — "
                   f"يُستورد لكنه لا يُستشهد به{C_0}")
-    print(f"\n  {n_fetch} للتنزيل · {n_staged} مُجهَّز · {n_manual} بانتظارك\n")
+    print(f"\n  {n_fetch} للتنزيل · {n_staged} مُجهَّز · {n_manual} بانتظارك")
+    for line in backend_warnings(plan):
+        print(f"  {C_Y}⚠{C_0} {line}")
+    print()
 
     if args.plan:
         print(f"{C_D}عرض خطة فقط — لم يُنفَّذ شيء. احذف --plan للتنفيذ.{C_0}\n")

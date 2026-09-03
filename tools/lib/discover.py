@@ -29,10 +29,22 @@ _TYPE_WORDS = {
 }
 
 
+# عناصر تُعدّ كتلة مستقلة: أصغر واحدة تحيط بالرابط هي «سياقه».
+_BLOCKS = {"li", "tr", "td", "th", "p", "div", "article", "section", "dd", "dt",
+           "h1", "h2", "h3", "h4", "h5", "h6", "figcaption", "caption"}
+_MAX_CONTEXT = 300
+
+
 @dataclass
 class Link:
     url: str
     text: str
+    context: str = ""
+
+    @property
+    def haystack(self) -> str:
+        """نص الرابط، وسياقه إن كان نصه شحيحًا."""
+        return f"{self.text} {self.context}".strip() if self.context else self.text
 
 
 @dataclass
@@ -43,11 +55,18 @@ class Candidate:
     reasons: list[str] = field(default_factory=list)
     number_year: bool = False
     coverage: float = 0.0
+    from_context: bool = False
 
     @property
     def strong(self) -> bool:
-        """هل يكفي للتسجيل الآلي؟ ثلاثة شروط مجتمعة، لا واحد منها."""
-        return self.score >= 0.9 and self.number_year and self.coverage >= 0.6
+        """هل يكفي للتسجيل الآلي؟ أربعة شروط مجتمعة، لا واحد منها.
+
+        `from_context` يمنع التسجيل الآلي عمدًا: ترشيح مبني على نص مجاور
+        للرابط — لا على نص الرابط نفسه — قد يلتقط رابط تشريع مجاور في
+        الجدول. يُعرض ليُراجَع، ولا يُكتب في السجل بلا عين.
+        """
+        return (self.score >= 0.9 and self.number_year and self.coverage >= 0.6
+                and not self.from_context)
 
 
 class _LinkParser(HTMLParser):
@@ -57,8 +76,12 @@ class _LinkParser(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.links: list[Link] = []
         self._stack: list[list] = []
+        self._blocks: list[list[str]] = []
+        self._pending: list[tuple[Link, list[list[str]]]] = []
 
     def handle_starttag(self, tag, attrs):
+        if tag in _BLOCKS:
+            self._blocks.append([])
         if tag != "a":
             return
         a = dict(attrs)
@@ -71,6 +94,8 @@ class _LinkParser(HTMLParser):
     def handle_data(self, data):
         if self._stack:
             self._stack[-1][1].append(data)
+        for blk in self._blocks:
+            blk.append(data)
 
     def handle_startendtag(self, tag, attrs):
         if tag == "img" and self._stack:
@@ -80,7 +105,26 @@ class _LinkParser(HTMLParser):
         if tag == "a" and self._stack:
             href, parts = self._stack.pop()
             text = re.sub(r"\s+", " ", " ".join(parts)).strip()
-            self.links.append(Link(href, text))
+            link = Link(href, text)
+            self.links.append(link)
+            # السياق يُحسم بعد الفراغ من الصفحة: نص الكتلة قد يكتمل بعد الرابط
+            self._pending.append((link, list(reversed(self._blocks))))
+        elif tag in _BLOCKS and self._blocks:
+            self._blocks.pop()
+
+    def close(self):
+        super().close()
+        for link, ancestors in self._pending:
+            anchor = len(link.text)
+            for blk in ancestors:          # من الأضيق إلى الأوسع
+                txt = re.sub(r"\s+", " ", "".join(blk)).strip()
+                if not txt or len(txt) <= anchor:
+                    continue               # كتلة لا تحوي غير الرابط: لا تضيف شيئًا
+                if len(txt) > _MAX_CONTEXT:
+                    break                  # والأوسع منها أكبر — لا سياق مفيد
+                link.context = txt
+                break
+        self._pending.clear()
 
 
 def links(html: str, base_url: str, *, same_host_only: bool = True) -> list[Link]:
@@ -88,8 +132,11 @@ def links(html: str, base_url: str, *, same_host_only: bool = True) -> list[Link
     p = _LinkParser()
     try:
         p.feed(html)
-        p.close()
     except Exception:  # noqa: BLE001 — صفحات حكومية قديمة تخالف المحلل المتساهل
+        pass
+    try:
+        p.close()      # وفيه يُحسم سياق كل رابط — يُستدعى ولو تعثّر التحليل
+    except Exception:  # noqa: BLE001
         pass
     host = (urlparse(base_url).hostname or "").lower()
     out, seen = [], set()
@@ -103,7 +150,7 @@ def links(html: str, base_url: str, *, same_host_only: bool = True) -> list[Link
         if url in seen:
             continue
         seen.add(url)
-        out.append(Link(url, ln.text))
+        out.append(Link(url, ln.text, ln.context))
     return out
 
 
@@ -116,17 +163,35 @@ def _digit_hit(haystack: str, value: str) -> bool:
     return re.search(rf"(?<!\d){re.escape(str(value))}(?!\d)", haystack) is not None
 
 
-def score(inst: dict, link: Link) -> Candidate:
-    """ترجيح رابط لتشريع، مع أسباب الترجيح معلنة."""
-    hay = normalize_digits(f"{link.text} {link.url}")
-    title_tokens = _tokens(inst["title"])
-    cov = (len(title_tokens & _tokens(link.text)) / len(title_tokens)
-           if title_tokens else 0.0)
+def _coverage(title_tokens: set[str], text: str) -> float:
+    return (len(title_tokens & _tokens(text)) / len(title_tokens)
+            if title_tokens else 0.0)
 
-    year_hit = _digit_hit(hay, inst["year"])
-    num_hit = _digit_hit(hay, inst["number"])
-    type_hit = any(w in fold(link.text) or w in link.text
-                   for w in _TYPE_WORDS.get(inst["type"], ()))
+
+def score(inst: dict, link: Link) -> Candidate:
+    """ترجيح رابط لتشريع، مع أسباب الترجيح معلنة.
+
+    الفهارس الرسمية كثيرًا ما تضع عنوان التشريع في الصف أو البند، والرابط
+    نفسه كلمة واحدة («تحميل»، «PDF»). فحين يعجز نص الرابط، يُجرَّب سياقه —
+    أضيق كتلة تحيط به — مع خصم، ومع منع التسجيل الآلي على أساسه.
+    """
+    own = normalize_digits(f"{link.text} {link.url}")
+    title_tokens = _tokens(inst["title"])
+    cov = _coverage(title_tokens, link.text)
+
+    year_hit, num_hit = _digit_hit(own, inst["year"]), _digit_hit(own, inst["number"])
+    type_hit = any(w in fold(link.text) for w in _TYPE_WORDS.get(inst["type"], ()))
+    from_context = False
+
+    # نص الرابط لا يعرّف تشريعًا: جرّب سياقه
+    if link.context and cov < 0.5 and not (year_hit and num_hit):
+        ctx = normalize_digits(link.context)
+        c_cov = _coverage(title_tokens, link.context)
+        c_year, c_num = _digit_hit(ctx, inst["year"]), _digit_hit(ctx, inst["number"])
+        if c_cov > cov or (c_year and c_num):
+            cov, year_hit, num_hit, from_context = max(cov, c_cov), c_year, c_num, True
+            type_hit = type_hit or any(w in fold(link.context)
+                                       for w in _TYPE_WORDS.get(inst["type"], ()))
 
     s, why = 0.5 * cov, []
     if cov:
@@ -143,12 +208,18 @@ def score(inst: dict, link: Link) -> Candidate:
     if type_hit:
         s += 0.10
         why.append("النوع مطابق")
-    # صفحة الفهرس نفسها ليست صفحة تشريع
-    if len(link.text) < 4:
+    if from_context:
+        s *= 0.85
+        why.append("من سياق الصفحة لا من نص الرابط")
+    elif len(link.text) < 4:
         s *= 0.5
         why.append("نص رابط شحيح")
-    return Candidate(url=link.url, text=link.text, score=min(round(s, 3), 1.0),
-                     reasons=why, number_year=year_hit and num_hit, coverage=cov)
+    # ما يُعرض هو ما طابق فعلًا: نص الرابط، أو السياق حين كان هو الدليل
+    shown = (link.context if from_context else link.text) or link.context
+    return Candidate(url=link.url, text=shown,
+                     score=min(round(s, 3), 1.0), reasons=why,
+                     number_year=year_hit and num_hit, coverage=cov,
+                     from_context=from_context)
 
 
 def match(instruments: list[dict], found: list[Link], *, floor: float = 0.4,
