@@ -32,6 +32,27 @@ from lib.corpus import Corpus  # noqa: E402
 C_R, C_G, C_Y, C_D, C_0 = "\033[31m", "\033[32m", "\033[33m", "\033[2m", "\033[0m"
 
 
+def load_office() -> dict:
+    p = ROOT / "config/office.yaml"
+    return (yaml.safe_load(p.read_text(encoding="utf-8")) or {}) if p.exists() else {}
+
+
+def provenance_gap(inst: dict) -> list[str]:
+    """ما ينقص من توثيق المصدر.
+
+    الجريدة الرسمية هي المرجع النهائي الملزم — القانون لا ينفذ إلا بالنشر
+    فيها — فرقم العدد وتاريخه هما ما يثبت أن النص المستورد هو النافذ.
+    """
+    missing = []
+    if not (inst.get("url") or "").strip():
+        missing.append("رابط المصدر الرسمي")
+    if not str(inst.get("gazette_issue") or "").strip():
+        missing.append("رقم عدد الجريدة الرسمية")
+    if not str(inst.get("gazette_date") or "").strip():
+        missing.append("تاريخ النشر في الجريدة")
+    return missing
+
+
 def load_sources(path: Path) -> dict:
     with path.open(encoding="utf-8") as fh:
         return yaml.safe_load(fh)
@@ -70,6 +91,31 @@ def fetch(url: str, ua: str, timeout: int, allowed: set[str]) -> tuple[str, str]
     return raw.decode("utf-8", errors="replace"), url
 
 
+def set_fields(sources_path: Path, key: str, fields: dict[str, str]) -> tuple[bool, str]:
+    """كتابة حقول تشريع نصيًا — حفاظًا على تعليقات الملف."""
+    text = sources_path.read_text(encoding="utf-8")
+    m = re.search(rf"^  - key: {re.escape(key)}$", text, re.MULTILINE)
+    if not m:
+        return False, f"لا تشريع بالمفتاح «{key}» في سجل المصادر"
+    nxt = re.search(r"^  - key: |^\w", text[m.end():], re.MULTILINE)
+    end = m.end() + (nxt.start() if nxt else len(text) - m.end())
+    block = text[m.end():end]
+
+    for name, value in fields.items():
+        if '"' in str(value):
+            return False, f"قيمة «{name}» تحوي علامة اقتباس"
+        new_block, n = re.subn(rf'^    {name}: ".*"$', f'    {name}: "{value}"',
+                               block, count=1, flags=re.MULTILINE)
+        if not n:
+            new_block = block.replace("\n    verified:",
+                                      f'\n    {name}: "{value}"\n    verified:', 1)
+            if new_block == block:
+                return False, f"تعذّر تحديد موضع الحقل «{name}»"
+        block = new_block
+    sources_path.write_text(text[:m.end()] + block + text[end:], encoding="utf-8")
+    return True, ""
+
+
 def set_url(sources_path: Path, key: str, url: str, allowed: set[str]) -> tuple[bool, str]:
     """تسجيل رابط تشريع في سجل المصادر، بعد التحقق من نطاقه.
 
@@ -85,41 +131,32 @@ def set_url(sources_path: Path, key: str, url: str, allowed: set[str]) -> tuple[
         return False, (f"النطاق «{host}» خارج قائمة المصادر الرسمية في sources.yaml.\n"
                        f"      المصدر غير الرسمي لا يدخل المدونة. وإن كان رسميًا "
                        f"فأضِفه إلى `domains` أولًا.")
-    if '"' in url:
-        return False, "الرابط يحوي علامة اقتباس"
-
-    text = sources_path.read_text(encoding="utf-8")
-    m = re.search(rf"^  - key: {re.escape(key)}$", text, re.MULTILINE)
-    if not m:
-        return False, f"لا تشريع بالمفتاح «{key}» في سجل المصادر"
-    nxt = re.search(r"^  - key: |^\w", text[m.end():], re.MULTILINE)
-    end = m.end() + (nxt.start() if nxt else len(text) - m.end())
-    block = text[m.end():end]
-
-    new_block, n = re.subn(r'^    url: ".*"$', f'    url: "{url}"', block,
-                           count=1, flags=re.MULTILINE)
-    if not n:
-        new_block = block.replace("\n    verified:", f'\n    url: "{url}"\n    verified:', 1)
-        if new_block == block:
-            return False, "تعذّر تحديد موضع الحقل"
-    sources_path.write_text(text[:m.end()] + new_block + text[end:], encoding="utf-8")
-    return True, ""
+    return set_fields(sources_path, key, {"url": url})
 
 
 def cmd_urls(src: dict, sources_path: Path) -> int:
-    """عرض حالة الروابط."""
-    filled = [i for i in src.get("instruments", []) if (i.get("url") or "").strip()]
-    empty = [i for i in src.get("instruments", []) if not (i.get("url") or "").strip()]
-    print(f"\n══ روابط المصادر الرسمية ══\n")
-    for i in filled:
-        print(f"  {C_G}✓{C_0} {i['key']:<28} {i['url']}")
-    for i in empty:
-        print(f"  {C_Y}·{C_0} {i['key']:<28} {C_D}{i['title']}{C_0}")
-    print(f"\n  مسجّل: {len(filled)}   ناقص: {len(empty)}")
-    if empty:
-        print(f"\n{C_D}  سجّل الرابط وأنت تتصفح صفحة التشريع:\n"
-              f"    python3 tools/ingest/ingest.py --set-url {empty[0]['key']} \"https://…\"\n"
-              f"  فتُثبَّت الخطوة الأصعب مرة واحدة، ويصير --fetch ممكنًا لاحقًا.{C_0}")
+    """عرض حالة توثيق المصادر."""
+    strict = load_office().get("citations", {}).get("require_gazette_provenance", True)
+    print(f"\n══ توثيق المصادر الرسمية ══")
+    print(f"{C_D}الإلزام: {'مفعّل — بلا توثيق لا استشهاد' if strict else 'مُعطَّل'}{C_0}\n")
+    complete = []
+    for i in src.get("instruments", []):
+        gap = provenance_gap(i)
+        if not gap:
+            complete.append(i)
+            print(f"  {C_G}✓{C_0} {i['key']:<28} ج.ر ({i['gazette_issue']}) "
+                  f"{i['gazette_date']}")
+        else:
+            print(f"  {C_Y}·{C_0} {i['key']:<28} {C_D}ينقصه: {'، '.join(gap)}{C_0}")
+    n = len(src.get("instruments", []))
+    print(f"\n  موثّق: {len(complete)}/{n}")
+    if len(complete) < n:
+        first = next(i for i in src["instruments"] if provenance_gap(i))
+        print(f"\n{C_D}  سجّل التوثيق كاملًا وأنت على صفحة التشريع:\n"
+              f"    python3 tools/ingest/ingest.py --set-provenance {first['key']} \\\n"
+              f"        --url \"https://…\" --gazette <رقم العدد> --date YYYY-MM-DD\n\n"
+              f"  رقم العدد وتاريخه من الجريدة الرسمية — وهي المرجع النهائي\n"
+              f"  الملزم، إذ لا ينفذ القانون إلا بالنشر فيها.{C_0}")
     print()
     return 0
 
@@ -140,7 +177,12 @@ def main() -> int:
                     help="استيراد رغم فشل مطابقة العنوان (يبقى verified=false)")
     ap.add_argument("--set-url", nargs=2, metavar=("KEY", "URL"),
                     help="تسجيل رابط تشريع في سجل المصادر بعد التحقق من نطاقه")
-    ap.add_argument("--urls", action="store_true", help="عرض حالة روابط المصادر")
+    ap.add_argument("--urls", action="store_true", help="عرض حالة توثيق المصادر")
+    ap.add_argument("--set-provenance", metavar="KEY",
+                    help="تسجيل توثيق تشريع: الرابط ورقم الجريدة وتاريخها")
+    ap.add_argument("--url", help="رابط المصدر الرسمي (مع --set-provenance)")
+    ap.add_argument("--gazette", help="رقم عدد الجريدة الرسمية")
+    ap.add_argument("--date", help="تاريخ النشر في الجريدة (YYYY-MM-DD)")
     args = ap.parse_args()
 
     sources_path = Path(args.sources)
@@ -148,6 +190,40 @@ def main() -> int:
 
     if args.urls:
         return cmd_urls(src, sources_path)
+    if args.set_provenance:
+        key = args.set_provenance
+        allowed = {d["host"].lower() for d in src.get("domains", [])}
+        fields: dict[str, str] = {}
+        if args.url:
+            ok, why = set_url(sources_path, key, args.url, allowed)
+            if not ok:
+                print(f"{C_R}✗ لم يُسجَّل:{C_0} {why}", file=sys.stderr)
+                return 1
+        if args.gazette:
+            fields["gazette_issue"] = str(args.gazette)
+        if args.date:
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", args.date):
+                print(f"{C_R}✗ التاريخ يجب أن يكون YYYY-MM-DD{C_0}", file=sys.stderr)
+                return 1
+            fields["gazette_date"] = args.date
+        if fields:
+            ok, why = set_fields(sources_path, key, fields)
+            if not ok:
+                print(f"{C_R}✗ لم يُسجَّل:{C_0} {why}", file=sys.stderr)
+                return 1
+        if not args.url and not fields:
+            print(f"{C_R}✗ مرّر --url أو --gazette أو --date{C_0}", file=sys.stderr)
+            return 1
+        inst = next((i for i in load_sources(sources_path)["instruments"]
+                     if i["key"] == key), None)
+        gap = provenance_gap(inst) if inst else ["التشريع غير موجود"]
+        print(f"{C_G}✓{C_0} سُجّل توثيق «{key}»")
+        if gap:
+            print(f"{C_Y}  ما زال ينقصه:{C_0} {'، '.join(gap)}")
+        else:
+            print(f"{C_D}  التوثيق مكتمل — يصير قابلًا للاستشهاد بعد الاستيراد.{C_0}")
+        return 0
+
     if args.set_url:
         key, url = args.set_url
         ok, why = set_url(sources_path, key, url,
@@ -163,6 +239,7 @@ def main() -> int:
     staging = ROOT / cfg.get("staging_dir", "corpus/staging")
     db_path = ROOT / cfg.get("index_db", "corpus/index/corpus.db")
     threshold = float(cfg.get("title_match_threshold", 0.6))
+    strict = load_office().get("citations", {}).get("require_gazette_provenance", True)
     allowed = {d["host"].lower() for d in src.get("domains", [])}
     staging.mkdir(parents=True, exist_ok=True)
 
@@ -223,7 +300,13 @@ def main() -> int:
         # العنوان قد يرد كجزء من سطر أطول ("بإصدار قانون العمل في القطاع الأهلي")
         if arabic.fold(inst["title"]) in arabic.fold(haystack):
             match = 1.0
-        verified = match >= threshold
+        title_ok = match >= threshold
+
+        # التوثيق شرط في الاستشهاد لا في الاستيراد: النص يُخزَّن، لكنه لا يُوسم
+        # verified — فلا يستطيع أي وكيل الاستشهاد به — حتى يُعرف عدد الجريدة
+        # الرسمية وتاريخه، وهما ما يثبت أن هذا هو النص النافذ.
+        gap = provenance_gap(inst) if strict else []
+        verified = title_ok and not gap
 
         # ── التقسيم ──
         articles = arabic.segment_articles(text)
@@ -231,11 +314,12 @@ def main() -> int:
             print(f"  {C_R}✗{C_0} {label}\n      {C_D}لم يُعثر على أي مادة — تحقق من تنسيق الملف{C_0}")
             failed += 1
             continue
-        if not verified and not args.force_unverified:
+        if not title_ok and not args.force_unverified:
             print(f"  {C_R}✗{C_0} {label}\n"
                   f"      {C_D}تعارض عنوان: التطابق {match:.0%} < {threshold:.0%}. "
                   f"العنوان في المصدر قد يختلف عن المُعلن في sources.yaml.{C_0}\n"
-                  f"      {C_D}راجع الملف، أو مرّر --force-unverified للاستيراد بلا توثيق.{C_0}")
+                  f"      {C_D}صحّح السجل ليطابق النص الرسمي، أو مرّر "
+                  f"--force-unverified.{C_0}")
             failed += 1
             continue
 
@@ -245,13 +329,22 @@ def main() -> int:
             source_domain=(urlparse(source_url).hostname if source_url else None),
             sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
             verified=verified, title_match=round(match, 3),
-            practice_areas=inst.get("practice_areas", []))
+            practice_areas=inst.get("practice_areas", []),
+            gazette_issue=str(inst.get("gazette_issue") or "") or None,
+            gazette_date=str(inst.get("gazette_date") or "") or None)
         n = corpus.put_articles(iid, articles)
         corpus.commit()
 
         mark = f"{C_G}✓{C_0}" if verified else f"{C_Y}~{C_0}"
-        note = "" if verified else f" {C_Y}(غير مُتحقق){C_0}"
-        print(f"  {mark} {label} — {n} مادة{note}")
+        print(f"  {mark} {label} — {n} مادة"
+              + ("" if verified else f" {C_Y}(غير قابل للاستشهاد){C_0}"))
+        if gap:
+            print(f"      {C_Y}ينقص التوثيق:{C_0} {'، '.join(gap)}")
+            print(f"      {C_D}python3 tools/ingest/ingest.py --set-provenance "
+                  f"{key} \\{C_0}")
+            print(f"      {C_D}    --url \"…\" --gazette <العدد> --date YYYY-MM-DD{C_0}")
+        elif not title_ok:
+            print(f"      {C_Y}العنوان لم يطابق ({match:.0%}){C_0}")
         ok += 1
 
     # ── التصدير والخلاصة ──
@@ -269,7 +362,10 @@ def main() -> int:
         print(f"\n{C_D}  الملفات المتخطاة تحتاج تنزيلًا يدويًا من المصادر الرسمية إلى:\n"
               f"    {staging}{C_0}")
     if st["verified"] == 0:
-        print(f"\n{C_R}  ⚠ لا يوجد أي تشريع مُتحقق — المكتب لا يستطيع إصدار أي إسناد.{C_0}")
+        print(f"\n{C_R}  ⚠ لا تشريع قابل للاستشهاد — المكتب لا يصدر أي إسناد.{C_0}")
+        if strict:
+            print(f"{C_D}  التوثيق مُلزَم (require_gazette_provenance). أكمله بـ:\n"
+                  f"    python3 tools/ingest/ingest.py --urls{C_0}")
         return 1
     print()
     return 0 if not failed else 1

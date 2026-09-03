@@ -69,6 +69,12 @@ src = yaml.safe_load(open('corpus/sources.yaml', encoding='utf-8'))
 src['ingest'].update(staging_dir='tools/tests/fixtures/staging',
                      index_db=str(tmp/'corpus.db'),
                      records_jsonl=str(tmp/'records.jsonl'))
+# توثيق اختباري للنموذج: التوثيق شرط في الاستشهاد، فبدونه لا يمر أي فحص
+# لاحق. هذه قيم اختبارية لا مرجع لها — النموذج نفسه ليس نصًا قانونيًا.
+for inst in src['instruments']:
+    if inst['key'] == 'labour-private-sector':
+        inst.update(url='https://lloc.gov.bh/fixture',
+                    gazette_issue='0000', gazette_date='2012-07-26')
 (tmp/'sources.yaml').write_text(yaml.safe_dump(src, allow_unicode=True), encoding='utf-8')
 PY
 if python3 tools/ingest/ingest.py --sources "$TMP/sources.yaml" \
@@ -77,6 +83,49 @@ if python3 tools/ingest/ingest.py --sources "$TMP/sources.yaml" \
   ok "استُورد التشريع وتحقق عنوانه — $N"
 else
   bad "فشل الاستيراد"; tail -8 "$TMP/ingest.log" | sed 's/^/      /'
+fi
+
+cat > "$TMP/good.md" <<'MD'
+# مذكرة قانونية
+
+## أولًا: الوقائع
+عمل المدعي لدى المدعى عليها من 2019 حتى إنهاء خدمته في 2024 بكتاب لم يتضمن سببًا.
+
+## ثالثًا: الأسانيد القانونية
+لما كان مفاد المادة (111) من قانون العمل في القطاع الأهلي ⟦BH:law:36/2012:م111⟧
+أن كل فصل تعسفي يقع باطلًا ويستحق العامل عنه تعويضًا عادلًا تقدره المحكمة، وكانت
+المادة (99) من ذات القانون ⟦BH:law:36/2012:م99⟧ تقرر للعامل إجازة سنوية بأجر
+أساسي، فإن المدعي يستحق التعويض وبدل الإجازات معًا.
+
+## سادسًا: التوصية
+رفع الدعوى أمام المحكمة العمالية.
+MD
+
+# ── 2ب. التوثيق شرط في الاستشهاد ─────────────────────────────────────
+step "2ب. نص بلا توثيق جريدة لا يُستشهد به"
+python3 - "$TMP" <<'PYX' >/dev/null
+import sys, yaml, pathlib
+tmp = pathlib.Path(sys.argv[1])
+src = yaml.safe_load(open('corpus/sources.yaml', encoding='utf-8'))
+src['ingest'].update(staging_dir='tools/tests/fixtures/staging',
+                     index_db=str(tmp/'noprov.db'), records_jsonl=str(tmp/'np.jsonl'))
+(tmp/'noprov.yaml').write_text(yaml.safe_dump(src, allow_unicode=True), encoding='utf-8')
+PYX
+python3 tools/ingest/ingest.py --sources "$TMP/noprov.yaml" \
+  --only labour-private-sector >"$TMP/np.log" 2>&1
+if grep -q "ينقص التوثيق" "$TMP/np.log"; then
+  ok "رُصد نقص توثيق الجريدة الرسمية"
+else
+  bad "لم يُرصد نقص التوثيق"
+fi
+# لا تُستعمل أنبوبة هنا: pipefail يجعل حالة الأنبوبة ترث رمز البوابة (1 عند
+# الرفض) فيبدو الفحص فاشلًا وهو ناجح.
+python3 tools/citation-gate/gate.py "$TMP/good.md" --kind memo \
+  --db "$TMP/noprov.db" >"$TMP/np-gate.log" 2>&1
+if grep -q "غير مُتحقق منه" "$TMP/np-gate.log"; then
+  ok "الإسناد إلى نص غير موثّق يُرفض"
+else
+  bad "مرّ إسناد إلى نص غير موثّق"; tail -5 "$TMP/np-gate.log" | sed 's/^/      /'
 fi
 
 # ── 3. البحث المقتطع ──────────────────────────────────────────────────
@@ -96,21 +145,6 @@ fi
 
 # ── 4. البوابة تقبل المسودة الصحيحة ──────────────────────────────────
 step "4. مسودة بإسناد صحيح"
-cat > "$TMP/good.md" <<'MD'
-# مذكرة قانونية
-
-## أولًا: الوقائع
-عمل المدعي لدى المدعى عليها من 2019 حتى إنهاء خدمته في 2024 بكتاب لم يتضمن سببًا.
-
-## ثالثًا: الأسانيد القانونية
-لما كان مفاد المادة (111) من قانون العمل في القطاع الأهلي ⟦BH:law:36/2012:م111⟧
-أن كل فصل تعسفي يقع باطلًا ويستحق العامل عنه تعويضًا عادلًا تقدره المحكمة، وكانت
-المادة (99) من ذات القانون ⟦BH:law:36/2012:م99⟧ تقرر للعامل إجازة سنوية بأجر
-أساسي، فإن المدعي يستحق التعويض وبدل الإجازات معًا.
-
-## سادسًا: التوصية
-رفع الدعوى أمام المحكمة العمالية.
-MD
 if python3 tools/citation-gate/gate.py "$TMP/good.md" --kind memo --db "$DB" \
      --render "$TMP/final.md" >"$TMP/g1.log" 2>&1; then
   ok "قُبلت المسودة — كل إسناد يُحل"

@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 
 from lib.citation import Citation  # noqa: E402
-from lib.corpus import Corpus  # noqa: E402
+from lib.corpus import Corpus, gazette_ref  # noqa: E402
 
 DEFAULT_DB = ROOT / "corpus/index/corpus.db"
 
@@ -47,7 +47,7 @@ def cmd_search(args) -> int:
         print(json.dumps([{
             "marker": h.marker, "instrument": h.instrument_title,
             "article": h.label, "text": h.snippet(args.chars),
-            "source_url": h.source_url,
+            "gazette": h.gazette, "source_url": h.source_url,
         } for h in hits], ensure_ascii=False, indent=2))
         return 0 if hits else 1
 
@@ -61,6 +61,8 @@ def cmd_search(args) -> int:
         print(f"── {h.label} من {h.instrument_title}")
         print(f"   العلامة: {h.marker}")
         print(f"   {h.snippet(args.chars)}")
+        if h.gazette:
+            print(f"   {h.gazette}")
         if h.source_url:
             print(f"   المصدر: {h.source_url}")
         print()
@@ -79,16 +81,23 @@ def cmd_article(args) -> int:
         return 1
     marker = (f"⟦BH:{inst['type']}:{inst['number']}/{inst['year']}"
               f":م{art['number']}{'مكرر' if art['bis'] else ''}⟧")
+    gz = gazette_ref(inst)
     if args.json:
         print(json.dumps({"marker": marker, "instrument": inst["title"],
                           "article": art["label"], "text": art["text"],
-                          "source_url": inst["source_url"]},
+                          "gazette": gz, "source_url": inst["source_url"],
+                          "citable": bool(inst["verified"])},
                          ensure_ascii=False, indent=2))
         return 0
     print(f"\n{art['label']} من {inst['title']}")
     print(f"العلامة: {marker}\n\n{art['text']}\n")
+    if gz:
+        print(gz)
     if inst["source_url"]:
-        print(f"المصدر: {inst['source_url']}\n")
+        print(f"المصدر: {inst['source_url']}")
+    if not inst["verified"]:
+        print("\n⚠ غير قابل للاستشهاد — التوثيق ناقص.")
+    print()
     return 0
 
 

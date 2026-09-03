@@ -63,6 +63,51 @@ domains:
     name: مصرف البحرين المركزي
     role: authority
 
+  # ── أضافها صاحب المكتب (2026) ──
+  # لم أتحقق منها من بيئة البناء: الخروج فيها محجوب بالكامل لكل النطاقات
+  # (سياسة بروكسي شاملة لا حجب جغرافي)، فالتحقق عند أول استيراد على جهازك.
+  - host: lloc.gov.bh
+    name: هيئة التشريع والرأي القانوني
+    role: primary
+    note: بوابة البحث في التشريعات، مع ترجمات إنجليزية
+  - host: www.lloc.gov.bh
+    name: هيئة التشريع والرأي القانوني
+    role: primary
+  - host: legalaffairs.gov.bh
+    name: هيئة التشريع والرأي القانوني
+    role: primary
+  - host: www.legalaffairs.gov.bh
+    name: هيئة التشريع والرأي القانوني
+    role: primary
+  - host: mola.gov.bh
+    name: وزارة الشؤون القانونية
+    role: ministry
+    note: قوائم القوانين السارية بصيغ Word/PDF مع أرقام الجريدة الرسمية
+  - host: www.mola.gov.bh
+    name: وزارة الشؤون القانونية
+    role: ministry
+  - host: mia.gov.bh
+    name: وزارة الإعلام — الجريدة الرسمية
+    role: gazette
+    note: أرشيف أعداد الجريدة الرسمية — المرجع النهائي الملزم
+  - host: www.mia.gov.bh
+    name: وزارة الإعلام — الجريدة الرسمية
+    role: gazette
+  - host: ppb.gov.bh
+    name: النيابة العامة
+    role: authority
+    note: نصوص أساسية بصيغة PDF عربية
+  - host: www.ppb.gov.bh
+    name: النيابة العامة
+    role: authority
+  - host: nuwab.bh
+    name: مجلس النواب
+    role: legislature
+    note: مشاريع القوانين والإصدارات
+  - host: www.nuwab.bh
+    name: مجلس النواب
+    role: legislature
+
 # ── التشريعات المطلوبة ────────────────────────────────────────────────
 # type: law (قانون) | dl (مرسوم بقانون) | dec (مرسوم) | ord (قرار وزاري)
 # رمز الاستشهاد المُولَّد: ⟦BH:<type>:<number>/<year>:م<article>⟧
@@ -78,6 +123,17 @@ domains:
 # غير رسمي. وبعد ملئه:
 #   • يُسجَّل الرابط مع كل مادة في المدونة، فيظهر في نتائج البحث كمرجع.
 #   • يصير `--fetch` ممكنًا للتحديث الآلي بدل التنزيل اليدوي في كل مرة.
+#
+# `gazette_issue` و`gazette_date` — رقم عدد الجريدة الرسمية وتاريخ النشر فيه.
+# **الجريدة الرسمية هي المرجع النهائي الملزم**: القانون لا ينفذ إلا بالنشر فيها،
+# فرقم العدد وتاريخه هما ما يُثبت أن النص الذي استوردته هو النافذ.
+#
+# سجّلها مع الرابط دفعة واحدة:
+#     python3 tools/ingest/ingest.py --set-provenance civil-code \
+#         --url "https://..." --gazette 2501 --date 2001-09-06
+#
+# وعند `require_gazette_provenance: true` في config/office.yaml (الافتراضي)
+# لا يُوسم تشريع `verified` بدونها، فلا يستطيع أي وكيل الاستشهاد به.
 instruments:
 
   # ── عمالي ──
@@ -88,6 +144,8 @@ instruments:
     title: قانون العمل في القطاع الأهلي
     practice_areas: [labour]
     url: ""
+    gazette_issue: ""
+    gazette_date: ""
     verified: false
   - key: lmra
     type: law
@@ -96,6 +154,8 @@ instruments:
     title: قانون تنظيم سوق العمل
     practice_areas: [labour]
     url: ""
+    gazette_issue: ""
+    gazette_date: ""
     verified: false
 
   # ── مدني ──
@@ -106,6 +166,8 @@ instruments:
     title: القانون المدني
     practice_areas: [civil, commercial]
     url: ""
+    gazette_issue: ""
+    gazette_date: ""
     verified: false
   - key: civil-commercial-procedure
     type: dl
@@ -114,6 +176,8 @@ instruments:
     title: قانون المرافعات المدنية والتجارية
     practice_areas: [civil, commercial, labour]
     url: ""
+    gazette_issue: ""
+    gazette_date: ""
     verified: false
   - key: evidence
     type: dl
@@ -122,6 +186,8 @@ instruments:
     title: قانون الإثبات في المواد المدنية والتجارية
     practice_areas: [civil, commercial]
     url: ""
+    gazette_issue: ""
+    gazette_date: ""
     verified: false
 
   # ── تجاري ──
@@ -132,6 +198,8 @@ instruments:
     title: قانون التجارة
     practice_areas: [commercial]
     url: ""
+    gazette_issue: ""
+    gazette_date: ""
     verified: false
   - key: commercial-companies
     type: dl
@@ -140,6 +208,8 @@ instruments:
     title: قانون الشركات التجارية
     practice_areas: [commercial]
     url: ""
+    gazette_issue: ""
+    gazette_date: ""
     verified: false
   - key: commercial-register
     type: law
@@ -148,6 +218,8 @@ instruments:
     title: قانون السجل التجاري
     practice_areas: [commercial]
     url: ""
+    gazette_issue: ""
+    gazette_date: ""
     verified: false
   - key: arbitration
     type: law
@@ -156,6 +228,8 @@ instruments:
     title: قانون التحكيم
     practice_areas: [commercial, civil]
     url: ""
+    gazette_issue: ""
+    gazette_date: ""
     verified: false
   - key: bankruptcy
     type: law
@@ -164,6 +238,8 @@ instruments:
     title: قانون إعادة التنظيم والإفلاس
     practice_areas: [commercial]
     url: ""
+    gazette_issue: ""
+    gazette_date: ""
     verified: false
 
 # ── إعدادات الاستيراد ─────────────────────────────────────────────────

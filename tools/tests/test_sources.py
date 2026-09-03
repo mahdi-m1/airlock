@@ -102,5 +102,47 @@ for host in sorted(ALLOWED):
     ok, _ = ing.set_url(q, "arbitration", f"https://{host}/law", ALLOWED)
     check(f"{host}", ok, True)
 
+
+print("\n── توثيق الجريدة الرسمية ──")
+# الجريدة هي المرجع النهائي الملزم: القانون لا ينفذ إلا بالنشر فيها، فرقم
+# العدد وتاريخه هما ما يثبت أن النص المستورد هو النافذ.
+check("كل تشريع له حقلا الجريدة",
+      all("gazette_issue" in i and "gazette_date" in i for i in CFG["instruments"]), True)
+check("لا توثيق مُخمَّن في المستودع",
+      [i["key"] for i in CFG["instruments"] if not ing.provenance_gap(i)], [])
+check("نقص التوثيق يُرصد كاملًا",
+      ing.provenance_gap({"url": "", "gazette_issue": "", "gazette_date": ""}),
+      ["رابط المصدر الرسمي", "رقم عدد الجريدة الرسمية", "تاريخ النشر في الجريدة"])
+check("التوثيق الكامل بلا نقص",
+      ing.provenance_gap({"url": "https://lloc.gov.bh/x", "gazette_issue": "3062",
+                          "gazette_date": "2012-07-26"}), [])
+check("نقص جزئي يُرصد",
+      ing.provenance_gap({"url": "https://lloc.gov.bh/x", "gazette_issue": "3062",
+                          "gazette_date": ""}), ["تاريخ النشر في الجريدة"])
+
+print("\n── كتابة حقول التوثيق ──")
+p2 = fresh()
+before2 = p2.read_text(encoding="utf-8")
+ok, why = ing.set_fields(p2, "civil-code",
+                         {"gazette_issue": "2501", "gazette_date": "2001-09-06"})
+check("تُكتب", ok, True)
+after2 = p2.read_text(encoding="utf-8")
+check("التعليقات محفوظة", after2.count("#"), before2.count("#"))
+check("عدد الأسطر ثابت", len(after2.splitlines()), len(before2.splitlines()))
+r = yaml.safe_load(after2)
+ci = next(i for i in r["instruments"] if i["key"] == "civil-code")
+check("العدد كُتب", str(ci["gazette_issue"]), "2501")
+check("التاريخ كُتب", str(ci["gazette_date"]), "2001-09-06")
+check("بقية التشريعات لم تتأثر",
+      [i["key"] for i in r["instruments"] if not ing.provenance_gap(i)], [])
+ok, _ = ing.set_fields(p2, "civil-code", {"gazette_issue": 'a"b'})
+check("قيمة بعلامة اقتباس تُرفض", ok, False)
+
+print("\n── نطاقات المصادر الرسمية الجديدة ──")
+for host in ("lloc.gov.bh", "mola.gov.bh", "mia.gov.bh", "ppb.gov.bh", "nuwab.bh"):
+    check(f"{host} في قائمة السماح", host in ALLOWED, True)
+check("للجريدة الرسمية دور خاص",
+      any(d.get("role") == "gazette" for d in CFG["domains"]), True)
+
 print(f"\n{'✓ كل الاختبارات ناجحة' if not FAIL else f'✗ {FAIL} اختبار فاشل'}\n")
 sys.exit(1 if FAIL else 0)

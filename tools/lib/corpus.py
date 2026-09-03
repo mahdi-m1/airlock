@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS instruments (
     sha256        TEXT NOT NULL,
     verified      INTEGER NOT NULL DEFAULT 0,
     title_match   REAL,
+    gazette_issue TEXT,
+    gazette_date  TEXT,
     practice_areas TEXT NOT NULL DEFAULT '[]'
 );
 CREATE TABLE IF NOT EXISTS articles (
@@ -52,6 +54,20 @@ CREATE INDEX IF NOT EXISTS idx_articles_instrument ON articles(instrument_id);
 """
 
 
+def gazette_ref(inst) -> str | None:
+    """مرجع الجريدة الرسمية كما يُكتب في المذكرة."""
+    issue = (inst["gazette_issue"] if "gazette_issue" in inst.keys() else None) or ""
+    date = (inst["gazette_date"] if "gazette_date" in inst.keys() else None) or ""
+    if not issue and not date:
+        return None
+    parts = []
+    if issue:
+        parts.append(f"الجريدة الرسمية عدد ({issue})")
+    if date:
+        parts.append(f"بتاريخ {date}")
+    return " ".join(parts)
+
+
 @dataclass
 class Hit:
     """نتيجة بحث — مقطع مادة مع إسنادها الكامل."""
@@ -63,6 +79,7 @@ class Hit:
     marker: str
     source_url: str | None
     verified: bool
+    gazette: str | None = None
     score: float = 0.0
 
     def snippet(self, max_chars: int = 700) -> str:
@@ -91,14 +108,17 @@ class Corpus:
     def put_instrument(self, *, id: str, key: str, type: str, number: str, year: str,
                        title: str, source_url: str | None, source_domain: str | None,
                        sha256: str, verified: bool, title_match: float | None,
-                       practice_areas: list[str]) -> None:
+                       practice_areas: list[str], gazette_issue: str | None = None,
+                       gazette_date: str | None = None) -> None:
         self.db.execute(
             "INSERT OR REPLACE INTO instruments (id,key,type,number,year,title,"
-            "source_url,source_domain,retrieved_at,sha256,verified,title_match,practice_areas)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "source_url,source_domain,retrieved_at,sha256,verified,title_match,"
+            "gazette_issue,gazette_date,practice_areas)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (id, key, type, number, year, normalize(title), source_url, source_domain,
              datetime.now(timezone.utc).isoformat(timespec="seconds"), sha256,
-             int(verified), title_match, json.dumps(practice_areas, ensure_ascii=False)),
+             int(verified), title_match, gazette_issue or None, gazette_date or None,
+             json.dumps(practice_areas, ensure_ascii=False)),
         )
 
     def put_articles(self, instrument_id: str, articles: list[dict]) -> int:
@@ -183,6 +203,7 @@ class Corpus:
                        f"{'مكرر' if art['bis'] else ''}⟧",
                 source_url=inst["source_url"],
                 verified=bool(inst["verified"]),
+                gazette=gazette_ref(inst),
                 score=-float(row["score"]),
             ))
             if len(hits) >= limit:
