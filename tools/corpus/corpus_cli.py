@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 
 from lib.citation import Citation  # noqa: E402
-from lib.corpus import Corpus, amendment_warning, gazette_ref  # noqa: E402
+from lib.corpus import Corpus, amendment_warning, gazette_ref, provenance_line  # noqa: E402
 
 DEFAULT_DB = ROOT / "corpus/index/corpus.db"
 
@@ -47,8 +47,8 @@ def cmd_search(args) -> int:
         print(json.dumps([{
             "marker": h.marker, "instrument": h.instrument_title,
             "article": h.label, "text": h.snippet(args.chars),
-            "gazette": h.gazette, "amendment_note": h.amendment_note,
-            "source_url": h.source_url,
+            "gazette": h.gazette, "provenance": h.provenance,
+            "amendment_note": h.amendment_note, "source_url": h.source_url,
         } for h in hits], ensure_ascii=False, indent=2))
         return 0 if hits else 1
 
@@ -64,6 +64,8 @@ def cmd_search(args) -> int:
         print(f"   {h.snippet(args.chars)}")
         if h.gazette:
             print(f"   {h.gazette}")
+        if h.provenance:
+            print(f"   {h.provenance}")
         if h.amendment_note:
             print(f"   ⚠ {h.amendment_note}")
         if h.source_url:
@@ -84,12 +86,13 @@ def cmd_article(args) -> int:
         return 1
     marker = (f"⟦BH:{inst['type']}:{inst['number']}/{inst['year']}"
               f":م{art['number']}{'مكرر' if art['bis'] else ''}⟧")
-    gz, amend = gazette_ref(inst), amendment_warning(inst)
+    gz, amend, prov = gazette_ref(inst), amendment_warning(inst), provenance_line(inst)
     if args.json:
         print(json.dumps({"marker": marker, "instrument": inst["title"],
                           "article": art["label"], "text": art["text"],
-                          "gazette": gz, "amendment_note": amend,
-                          "source_url": inst["source_url"],
+                          "gazette": gz, "provenance": prov,
+                          "amendment_note": amend, "source_url": inst["source_url"],
+                          "sha256": inst["sha256"],
                           "citable": bool(inst["verified"])},
                          ensure_ascii=False, indent=2))
         return 0
@@ -97,6 +100,8 @@ def cmd_article(args) -> int:
     print(f"العلامة: {marker}\n\n{art['text']}\n")
     if gz:
         print(gz)
+    if prov:
+        print(prov)
     if amend:
         print(f"⚠ {amend}")
     if inst["source_url"]:

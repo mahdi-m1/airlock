@@ -241,6 +241,7 @@ def main() -> int:
     threshold = float(cfg.get("title_match_threshold", 0.6))
     strict = load_office().get("citations", {}).get("require_gazette_provenance", True)
     allowed = {d["host"].lower() for d in src.get("domains", [])}
+    domain_role = {d["host"].lower(): d.get("role", "") for d in src.get("domains", [])}
     staging.mkdir(parents=True, exist_ok=True)
 
     instruments = src.get("instruments", [])
@@ -333,7 +334,9 @@ def main() -> int:
             gazette_issue=str(inst.get("gazette_issue") or "") or None,
             gazette_date=str(inst.get("gazette_date") or "") or None,
             amendments=inst.get("amendments") or [],
-            consolidated=bool(inst.get("consolidated")))
+            consolidated=bool(inst.get("consolidated")),
+            source_tier=domain_role.get(
+                (urlparse(source_url).hostname or "").lower()) if source_url else None)
         n = corpus.put_articles(iid, articles)
         corpus.commit()
 

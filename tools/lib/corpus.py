@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS instruments (
     gazette_date  TEXT,
     amendments    TEXT NOT NULL DEFAULT '[]',
     consolidated  INTEGER NOT NULL DEFAULT 0,
+    source_tier   TEXT,
     practice_areas TEXT NOT NULL DEFAULT '[]'
 );
 CREATE TABLE IF NOT EXISTS articles (
@@ -77,10 +78,25 @@ def amendment_warning(inst) -> str | None:
             f"تحقق من المادة قبل الاستشهاد بها")
 
 
+# رتبة المصدر: الجريدة وحدها ملزمة، وكل ما عداها — ولو كان جهة رسمية —
+# مرجع ثانوي يُتحقق منه. هذا ما يجب أن يقرأه كاتب المذكرة مع كل استشهاد.
+SOURCE_TIERS = {
+    "gazette": "الجريدة الرسمية — المرجع الملزم",
+    "primary": "هيئة التشريع — مرجع ثانوي رسمي، يُتحقق من الجريدة",
+    "ministry": "جهة رسمية — مرجع ثانوي، يُتحقق من الجريدة",
+    "authority": "جهة رسمية — مرجع ثانوي، يُتحقق من الجريدة",
+    "legislature": "مجلس النواب — مرجع ثانوي، يُتحقق من الجريدة",
+    "portal": "بوابة حكومية — مرجع ثانوي، يُتحقق من الجريدة",
+}
+
+
+def _col(inst, name):
+    return (inst[name] if name in inst.keys() else None) or ""
+
+
 def gazette_ref(inst) -> str | None:
     """مرجع الجريدة الرسمية كما يُكتب في المذكرة."""
-    issue = (inst["gazette_issue"] if "gazette_issue" in inst.keys() else None) or ""
-    date = (inst["gazette_date"] if "gazette_date" in inst.keys() else None) or ""
+    issue, date = _col(inst, "gazette_issue"), _col(inst, "gazette_date")
     if not issue and not date:
         return None
     parts = []
@@ -89,6 +105,22 @@ def gazette_ref(inst) -> str | None:
     if date:
         parts.append(f"بتاريخ {date}")
     return " ".join(parts)
+
+
+def provenance_line(inst) -> str | None:
+    """سطر التوثيق الكامل: المصدر ورتبته وتاريخ الوصول.
+
+    ما يجب تسجيله مع كل استشهاد: من أين جاء النص، وهل هو الجريدة نفسها أم
+    مرجع ثانوي رسمي، ومتى استُرجع — فالنسخة الإلكترونية قد تتغير بعد ذلك.
+    """
+    tier = _col(inst, "source_tier")
+    when = _col(inst, "retrieved_at")[:10]
+    parts = []
+    if tier:
+        parts.append(SOURCE_TIERS.get(tier, tier))
+    if when:
+        parts.append(f"استُرجع {when}")
+    return " · ".join(parts) or None
 
 
 @dataclass
@@ -103,6 +135,7 @@ class Hit:
     source_url: str | None
     verified: bool
     gazette: str | None = None
+    provenance: str | None = None
     amendment_note: str | None = None
     score: float = 0.0
 
@@ -135,17 +168,19 @@ class Corpus:
                        practice_areas: list[str], gazette_issue: str | None = None,
                        gazette_date: str | None = None,
                        amendments: list[dict] | None = None,
-                       consolidated: bool = False) -> None:
+                       consolidated: bool = False,
+                       source_tier: str | None = None) -> None:
         self.db.execute(
             "INSERT OR REPLACE INTO instruments (id,key,type,number,year,title,"
             "source_url,source_domain,retrieved_at,sha256,verified,title_match,"
-            "gazette_issue,gazette_date,amendments,consolidated,practice_areas)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "gazette_issue,gazette_date,amendments,consolidated,source_tier,"
+            "practice_areas)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (id, key, type, number, year, normalize(title), source_url, source_domain,
              datetime.now(timezone.utc).isoformat(timespec="seconds"), sha256,
              int(verified), title_match, gazette_issue or None, gazette_date or None,
              json.dumps(amendments or [], ensure_ascii=False), int(consolidated),
-             json.dumps(practice_areas, ensure_ascii=False)),
+             source_tier, json.dumps(practice_areas, ensure_ascii=False)),
         )
 
     def put_articles(self, instrument_id: str, articles: list[dict]) -> int:
@@ -231,6 +266,7 @@ class Corpus:
                 source_url=inst["source_url"],
                 verified=bool(inst["verified"]),
                 gazette=gazette_ref(inst),
+                provenance=provenance_line(inst),
                 amendment_note=amendment_warning(inst),
                 score=-float(row["score"]),
             ))

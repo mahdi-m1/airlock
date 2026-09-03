@@ -200,5 +200,22 @@ check("وهو غير مدمج", lab["consolidated"], False)
 check("كل تعديل بنوع ورقم وسنة",
       all({"type", "number", "year"} <= set(a) for a in lab["amendments"]), True)
 
+
+print("\n── سطر التوثيق الكامل ──")
+# ما يُسجَّل مع كل استشهاد: الجريدة، والمصدر ورتبته، وتاريخ الوصول.
+from lib.corpus import SOURCE_TIERS, provenance_line  # noqa: E402
+
+check("الجريدة وحدها ملزمة", "الملزم" in SOURCE_TIERS["gazette"], True)
+check("هيئة التشريع مرجع ثانوي",
+      "ثانوي" in SOURCE_TIERS["primary"] and "الجريدة" in SOURCE_TIERS["primary"], True)
+check("كل أدوار النطاقات لها رتبة",
+      {d.get("role") for d in CFG["domains"]} <= set(SOURCE_TIERS), True)
+pl = provenance_line(Row(source_tier="primary", retrieved_at="2026-09-03T10:00:00+00:00"))
+check("يظهر تاريخ الوصول", "استُرجع 2026-09-03" in (pl or ""), True)
+check("تظهر رتبة المصدر", "ثانوي" in (pl or ""), True)
+check("بلا بيانات: لا سطر", provenance_line(Row(source_tier="", retrieved_at="")), None)
+check("رتبة مجهولة تُعرض كما هي",
+      "x-tier" in (provenance_line(Row(source_tier="x-tier", retrieved_at="")) or ""), True)
+
 print(f"\n{'✓ كل الاختبارات ناجحة' if not FAIL else f'✗ {FAIL} اختبار فاشل'}\n")
 sys.exit(1 if FAIL else 0)
