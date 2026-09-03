@@ -116,6 +116,7 @@ cat <<'STEPS'
        python3 tools/ingest/ingest.py --from-staging
        python3 tools/corpus/corpus_cli.py stats
        python3 scripts/calibrate-threshold.py --write   # عايِر عتبة الدلالة
+       python3 tools/contracts/fill_sanad.py            # أسناد بنود العقود
 
   5) جرّب قضية اصطناعية من طرف إلى طرف
        ./scripts/e2e-test.sh

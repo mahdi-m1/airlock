@@ -125,5 +125,43 @@ for section in ("السؤال", "الجواب المختصر", "الوقائع �
                 "الخيارات المتاحة", "المخاطر والتحفظات", "التوصية"):
     check(f"يحوي «{section}»", section in body, True)
 
+
+print("\n── دورة ملء الأسناد ──")
+import shutil  # noqa: E402
+
+fs_spec = importlib.util.spec_from_file_location(
+    "fs", ROOT / "tools/contracts/fill_sanad.py")
+fs = importlib.util.module_from_spec(fs_spec)
+fs_spec.loader.exec_module(fs)
+
+check("كل البنود القانونية لها مصطلحات بحث",
+      all(i.get("search_terms") for i in fs.statutory_items(CFG)), True)
+check("عدد البنود القانونية", len(fs.statutory_items(CFG)) > 0, True)
+
+# قراءة ورقة مراجعة
+sheet = TMP / "sheet.md"
+sheet.write_text(
+    "# ورقة\n\n## amal/ijaza\n\n**المعتمد:** `⟦BH:law:36/2012:م99⟧`\n\n---\n"
+    "\n## amal/inha\n\n**المعتمد:** \n\n---\n", encoding="utf-8")
+parsed = fs.parse_sheet(sheet)
+check("يقرأ المعتمد", parsed.get(("amal", "ijaza")), "⟦BH:law:36/2012:م99⟧")
+check("يتجاهل غير المعتمد", ("amal", "inha") in parsed, False)
+
+# الكتابة النصية تحفظ التعليقات
+original = fs.CLAUSES.read_text(encoding="utf-8")
+edited, done = fs.set_sanad(original, "amal", "ijaza", "⟦BH:law:36/2012:م99⟧")
+check("كُتب السند في موضعه", done, True)
+check("السند ظهر", 'sanad: "⟦BH:law:36/2012:م99⟧"' in edited, True)
+check("التعليقات محفوظة",
+      edited.count("#") == original.count("#"), True)
+check("لم يتغير غير سطر واحد",
+      sum(1 for a, b in zip(original.splitlines(), edited.splitlines()) if a != b), 1)
+_, missing = fs.set_sanad(original, "amal", "band_wahmi", "⟦BH:law:1/2020:م1⟧")
+check("بند غير موجود لا يُكتب", missing, False)
+
+# الملف المُسلَّم لا يحمل أسنادًا غير مُتحقق منها
+check("كل الأسناد في المستودع فارغة",
+      all(not (i.get("sanad") or "").strip() for i in fs.statutory_items(CFG)), True)
+
 print(f"\n{'✓ كل الاختبارات ناجحة' if not FAIL else f'✗ {FAIL} اختبار فاشل'}\n")
 sys.exit(1 if FAIL else 0)
