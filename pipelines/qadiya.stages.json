@@ -42,7 +42,8 @@
           "options": [
             "مذكرة",
             "مرافعة",
-            "رأي"
+            "استشارة",
+            "عقد"
           ],
           "required": true,
           "showInAddForm": true
@@ -222,11 +223,12 @@
       "_assigneeByVariable": {
         "variable": "nawa_almukhraj",
         "map": {
-          "مرافعة": "pleadings-drafter"
+          "مرافعة": "pleadings-drafter",
+          "عقد": "contract-drafter"
         }
       },
       "automation": {
-        "instructionsBody": "اتبع القالب في مهارتك حرفيًا. ضع علامة إسناد بعد كل إشارة قانونية. قبل التسليم شغّل بنفسك: python3 tools/citation-gate/gate.py <الملف> --kind <memo|pleading> — ولا تسلّم مسودة تعرف أنها سترد. عند الرد عالج السبب تحديدًا: لا تحذف علامة ولا تبدّل رقم مادة حتى تمر."
+        "instructionsBody": "اتبع قالب نوع المخرج حرفيًا. للمذكرات والمرافعات والاستشارات: ضع علامة إسناد بعد كل إشارة قانونية، ثم شغّل قبل التسليم: python3 tools/citation-gate/gate.py <الملف> --kind <memo|pleading|opinion>.\n\nللعقود: ابدأ من القالب واملأ كل حقل <…>، ثم شغّل: python3 tools/contracts/check_clauses.py <العقد> --type <النوع> — وعالج البنود المعروضة كـ«تحقق يدوي» بنفسك في المدونة، فعدم فرض الفاحص لها لا يعني سلامتها.\n\nلا تسلّم مسودة تعرف أنها سترد. وعند الرد عالج السبب تحديدًا: لا تحذف علامة ولا تبدّل رقم مادة ولا تحذف بندًا حتى تمر."
       },
       "variables": [
         {
@@ -350,7 +352,8 @@
           "options": [
             "مذكرة",
             "مرافعة",
-            "رأي"
+            "استشارة",
+            "عقد"
           ],
           "required": true
         }

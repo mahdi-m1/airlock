@@ -61,11 +61,11 @@ fi
 # ── فحص الحزمة ───────────────────────────────────────────────────────
 printf '\n3. سلامة الحزمة\n'
 if python3 scripts/validate.py >/tmp/_v.txt 2>&1; then
-  ok "حزمة المكتب سليمة (10 وكلاء، 11 مهارة، خط بـ10 مراحل)"
+  ok "حزمة المكتب سليمة (11 وكيلًا، 13 مهارة، خط بـ10 مراحل)"
 else
   bad "فشل التحقق من الحزمة:"; sed 's/^/    /' /tmp/_v.txt | tail -12
 fi
-for t in test_arabic_citation test_semantic test_documents test_docx; do
+for t in test_arabic_citation test_semantic test_documents test_docx test_contracts; do
   if python3 "tools/tests/$t.py" >/tmp/_t.txt 2>&1; then
     ok "اختبارات $t ناجحة"
   else

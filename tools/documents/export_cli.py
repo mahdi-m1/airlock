@@ -29,7 +29,8 @@ sys.path.insert(0, str(ROOT / "tools" / "citation-gate"))
 
 C_R, C_G, C_Y, C_D, C_0 = "\033[31m", "\033[32m", "\033[33m", "\033[2m", "\033[0m"
 
-KIND_LABEL = {"memo": "مذكرة قانونية", "pleading": "مرافعة", "opinion": "رأي قانوني"}
+KIND_LABEL = {"memo": "مذكرة قانونية", "pleading": "مرافعة",
+              "opinion": "استشارة قانونية", "contract": "عقد"}
 
 
 def office_config() -> dict:
@@ -61,7 +62,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="إصدار الوثيقة النهائية بصيغة Word")
     ap.add_argument("file", type=Path, help="المسودة بصيغة Markdown")
     ap.add_argument("--out", type=Path, required=True, help="ملف .docx الناتج")
-    ap.add_argument("--kind", choices=["memo", "pleading", "opinion"], default="memo")
+    ap.add_argument("--kind", choices=["memo", "pleading", "opinion", "contract"], default="memo")
     ap.add_argument("--title", help="عنوان الوثيقة (افتراضيًا من نوعها)")
     ap.add_argument("--db", default=str(ROOT / "corpus/index/corpus.db"))
     ap.add_argument("--no-gate", action="store_true",

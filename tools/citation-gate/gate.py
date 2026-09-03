@@ -130,7 +130,9 @@ def check(path: Path, kind: str, db: str, cfg: dict, *, deep: bool = True) -> di
             f"لهذا النوع من الوثائق")
 
     # ── 4. أقسام قانونية بلا سند ──
-    for head, body in section_bodies(text):
+    # لا تسري على العقود: بنودها التزامات لا حجج، وإلزامها بإسناد يحوّل العقد
+    # إلى مذكرة. اكتمالها يفحصه tools/contracts/check_clauses.py.
+    for head, body in ([] if kind == "contract" else section_bodies(text)):
         if LEGAL_SECTION_RE.match(head) and body.strip() and not parse_all(body):
             title = head.strip("# ").strip()
             problems.append(f"القسم «{title}» يعرض حجة قانونية بلا أي إسناد")
@@ -195,8 +197,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description="بوابة التحقق من الإسناد القانوني — وجود المادة ثم دلالتها")
     ap.add_argument("file", type=Path)
-    ap.add_argument("--kind", choices=["memo", "pleading", "opinion"], default="memo",
-                    help="memo=مذكرة  pleading=مرافعة  opinion=رأي")
+    ap.add_argument("--kind", choices=["memo", "pleading", "opinion", "contract"], default="memo",
+                    help="memo=مذكرة  pleading=مرافعة  opinion=استشارة  contract=عقد")
     ap.add_argument("--db", default=str(ROOT / "corpus/index/corpus.db"))
     ap.add_argument("--render", type=Path, metavar="OUT",
                     help="عند النجاح: كتابة الوثيقة النهائية بلا علامات آلية")

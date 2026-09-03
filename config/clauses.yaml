@@ -1,0 +1,279 @@
+# ═══════════════════════════════════════════════════════════════════════
+#  قوائم فحص بنود العقود — يقرأها tools/contracts/check_clauses.py
+#
+#  لكل بند `basis` يحدد كيف يُعامَل، وهذا التمييز جوهري:
+#
+#  • basis: structural — انضباط صياغة لا حكم قانوني. «تحديد الأطراف» و«القانون
+#    الواجب التطبيق» و«الإخطارات» لازمة في أي عقد أيًّا كان النظام الحاكم،
+#    فتُفرض مباشرة.
+#
+#  • basis: statutory — مبني على نص في القانون البحريني. لا يُفرض إلا إذا حمل
+#    `sanad` يُحل إلى المدونة المحلية. وكل sanad هنا فارغ عمدًا: لم يُتحقق من
+#    أرقام المواد (بيئة البناء تحجب النطاقات البحرينية)، فبقاؤه فارغًا يجعل
+#    الفاحص يُبلّغ عنه كتحقق يدوي بدل أن يفرض قاعدة لم يتثبّت منها أحد.
+#
+#  ملء هذه الحقول عمل أمين المصادر بعد بناء المدونة:
+#      python3 tools/corpus/corpus_cli.py search "<الموضوع>" --area <النطاق>
+#  ثم ينسخ علامة الإسناد كما هي. لا تُملأ من الذاكرة.
+# ═══════════════════════════════════════════════════════════════════════
+
+schema: airlock-clauses/v1
+
+# بنود تلزم كل عقد مهما كان نوعه
+common:
+  required:
+    - key: atraf
+      label: تحديد الأطراف
+      basis: structural
+      patterns: ["الطرف الاول", "الطرف الثاني", "المؤجر", "المستأجر", "المشتري",
+                 "البائع", "العميل", "المفصح", "المتلقي", "مقدم الخدمه"]
+      why: عقد لا يحدد أطرافه بأسمائهم وصفاتهم وعناوينهم لا يُنفَّذ ولا يُخاصَم بموجبه.
+    - key: qanun_ikhtisas
+      label: القانون الواجب التطبيق والاختصاص
+      basis: structural
+      patterns: ["القانون الواجب", "تختص محاكم", "محاكم مملكة البحرين", "الاختصاص"]
+      why: بدونه يصير تحديد المحكمة المختصة نزاعًا سابقًا على النزاع الأصلي.
+    - key: ikhtarat
+      label: الإخطارات
+      basis: structural
+      patterns: ["الاخطارات", "الاخطار", "يُعد واصلا", "يعد واصلا"]
+      why: أكثر الخلافات الإجرائية تبدأ من إخطار يُنكر وصوله.
+    - key: taadil_kitabatan
+      label: التعديل كتابةً
+      basis: structural
+      patterns: ["لا يعدل الا كتابة", "لا تعديل الا كتابة", "الا كتابة وبتوقيع"]
+      why: يمنع الاحتجاج باتفاق شفوي لاحق يناقض العقد.
+    - key: butlan_band
+      label: استقلال البنود
+      basis: structural
+      patterns: ["بطلان اي بند", "بطلان بند", "لا يمس صحة باقي", "لا يبطل العقد"]
+      why: يمنع انهيار العقد كله ببطلان بند واحد.
+
+types:
+
+  amal:
+    name: عقد عمل
+    practice_area: labour
+    template: maktab/skills/siyaghat-alaqud/references/qalib-aqd-amal.md
+    required:
+      - key: ajr
+        label: الأجر ومواعيد أدائه
+        basis: statutory
+        sanad: ""
+        patterns: ["الاجر", "اجر اساسي", "الاجر الاساسي"]
+        why: الأجر ركن في عقد العمل، وتحديده وموعد أدائه محل أغلب المنازعات العمالية.
+      - key: muddat_alaqd
+        label: مدة العقد ونوعه
+        basis: statutory
+        sanad: ""
+        patterns: ["مدة العقد", "محدد المدة", "غير محدد المدة"]
+        why: محدد المدة وغير المحدد يختلفان في أحكام الإنهاء والتعويض اختلافًا جوهريًا.
+      - key: amal_wa_makan
+        label: المسمى الوظيفي ومكان العمل
+        basis: structural
+        patterns: ["المسمى الوظيفي", "بوظيفة", "مقر العمل", "مكان العمل"]
+        why: غموض المهام يفتح باب النزاع حول ما يُعد إخلالًا.
+      - key: ijaza
+        label: الإجازات
+        basis: statutory
+        sanad: ""
+        patterns: ["الاجازه السنويه", "الاجازات", "اجازه سنويه"]
+        why: بدل الإجازات من أكثر المطالبات ورودًا عند انتهاء الخدمة.
+      - key: inha
+        label: إنهاء العقد ومهلة الإخطار
+        basis: statutory
+        sanad: ""
+        patterns: ["انهاء العقد", "اخطار كتابي", "مهله الاخطار"]
+        why: الإنهاء بلا إخطار متفق عليه يقود مباشرة إلى دعوى فصل تعسفي.
+      - key: nihayat_khidma
+        label: مستحقات نهاية الخدمة
+        basis: statutory
+        sanad: ""
+        patterns: ["نهايه الخدمه", "مكافاه نهايه", "مستحقاته"]
+        why: إغفالها لا يسقطها، لكنه يجعل حسابها محل خلاف.
+    void:
+      - key: tanazul_huquq
+        label: تنازل العامل عن حقوق مقررة قانونًا
+        basis: statutory
+        sanad: ""
+        patterns: ["يتنازل العامل عن", "يسقط حقه في", "يتنازل عن مكافاه",
+                   "يتنازل عن الاجازه", "لا يستحق اي تعويض"]
+        why: >-
+          الحقوق المقررة للعامل بنصوص آمرة لا تسقط بالاتفاق. البند يطمئن صاحب
+          العمل إلى حماية لا وجود لها، ويُبطل عند أول منازعة.
+      - key: ajr_dun_alhad
+        label: أجر دون الحد الأدنى المقرر
+        basis: statutory
+        sanad: ""
+        patterns: ["دون الحد الادني", "اقل من الحد الادني"]
+        why: الاتفاق على أجر دون الحد المقرر لا ينفذ في حق العامل.
+
+  ijar:
+    name: عقد إيجار
+    practice_area: civil
+    template: maktab/skills/siyaghat-alaqud/references/qalib-aqd-ijar.md
+    required:
+      - key: ain
+        label: وصف العين المؤجرة
+        basis: structural
+        patterns: ["العين المؤجره", "الوحده", "العقار", "معاينه"]
+        why: وصف غير نافٍ للجهالة يجعل محل العقد قابلًا للنزاع.
+      - key: ujra
+        label: الأجرة وموعد أدائها
+        basis: structural
+        patterns: ["الاجره", "دينارا بحرينيا"]
+        why: الأجرة ومواعيدها ركن العقد وأساس دعوى المطالبة.
+      - key: mudda
+        label: المدة والتجديد
+        basis: structural
+        patterns: ["المده", "تبدا من", "التجديد"]
+        why: غياب آلية التجديد يترك العلاقة معلّقة عند انتهاء المدة.
+      - key: gharad
+        label: الغرض من الإيجار
+        basis: structural
+        patterns: ["الغرض", "تستعمل العين"]
+        why: تغيير الغرض من أشيع أسباب طلب الإخلاء.
+      - key: tamin
+        label: مبلغ التأمين وشروط رده
+        basis: structural
+        patterns: ["التامين", "مبلغ تامين", "يرد عند"]
+        why: رد التأمين نزاع متكرر ما لم يُحدد ميعاده وما يُخصم منه.
+    void:
+      - key: ikhla_bila_ijraat
+        label: الإخلاء دون إجراءات
+        basis: statutory
+        sanad: ""
+        patterns: ["الاخلاء دون", "بدون اللجوء الي القضاء", "دون الحاجه الي حكم"]
+        why: اشتراط الإخلاء الذاتي دون سلوك السبيل المقرر قانونًا لا يُعتد به عادةً.
+
+  bay:
+    name: عقد بيع
+    practice_area: commercial
+    template: maktab/skills/siyaghat-alaqud/references/qalib-aqd-bay.md
+    required:
+      - key: mabie
+        label: وصف المبيع
+        basis: structural
+        patterns: ["المبيع", "المواصفات"]
+        why: المبيع غير المحدد يجعل العقد قابلًا للبطلان لجهالة المحل.
+      - key: thaman
+        label: الثمن وطريقة أدائه
+        basis: structural
+        patterns: ["الثمن", "دينارا بحرينيا"]
+        why: ركن العقد، وطريقة الأداء أساس دعوى المطالبة.
+      - key: taslim
+        label: التسليم ومكانه وميعاده
+        basis: structural
+        patterns: ["التسليم", "يسلم المبيع"]
+        why: تحديده يحسم من يتحمل تبعة التأخير.
+      - key: milkiya_makhatir
+        label: انتقال الملكية وتبعة الهلاك
+        basis: structural
+        patterns: ["انتقال الملكيه", "تبعه الهلاك", "تنتقل الملكيه"]
+        why: من يتحمل هلاك المبيع قبل التسليم مسألة تُحسم بالبند لا بالافتراض.
+      - key: daman_uyub
+        label: ضمان العيوب الخفية
+        basis: statutory
+        sanad: ""
+        patterns: ["العيوب الخفيه", "يضمن البائع"]
+        why: مدة الضمان وشروط الإخطار بالعيب تحسم كثيرًا من المنازعات.
+
+  khadamat:
+    name: عقد خدمات
+    practice_area: commercial
+    template: maktab/skills/siyaghat-alaqud/references/qalib-aqd-khadamat.md
+    required:
+      - key: nitaq
+        label: نطاق الخدمات
+        basis: structural
+        patterns: ["نطاق الخدمات", "المخرجات", "الخدمات"]
+        why: النطاق غير المحدد يجعل كل طلب إضافي محل خلاف على أنه داخل العقد أو خارجه.
+      - key: muqabil
+        label: المقابل ومواعيد الأداء
+        basis: structural
+        patterns: ["المقابل", "دينارا بحرينيا", "الفاتوره"]
+        why: أساس المطالبة عند التأخر في السداد.
+      - key: qubul
+        label: القبول والمراجعة
+        basis: structural
+        patterns: ["القبول", "المراجعه", "جوله تعديل", "يفحص العميل"]
+        why: بلا آلية قبول تبقى المخرجات معلّقة بلا نهاية.
+      - key: milkiya_fikriya
+        label: الملكية الفكرية
+        basis: structural
+        patterns: ["الملكيه الفكريه", "ملكيه المخرجات", "ترخيص"]
+        why: من يملك المخرجات بعد الأداء من أكثر ما يُغفل وأكثر ما يُتنازع عليه.
+      - key: masuliya
+        label: حدود المسؤولية
+        basis: structural
+        patterns: ["حدود المسؤوليه", "سقف المسؤوليه", "الاضرار غير المباشره"]
+        why: بلا سقف تبقى المسؤولية مفتوحة بلا تناسب مع المقابل.
+      - key: quwa_qahira
+        label: القوة القاهرة
+        basis: structural
+        patterns: ["القوه القاهره"]
+        why: تحدد أثر الظرف الخارج عن الإرادة بدل تركه للتقدير.
+
+  ifsha:
+    name: اتفاقية عدم إفشاء
+    practice_area: commercial
+    template: maktab/skills/siyaghat-alaqud/references/qalib-adam-ifsha.md
+    required:
+      - key: tarif_sirriya
+        label: تعريف المعلومات السرية
+        basis: structural
+        patterns: ["المعلومات السريه", "تعريف المعلومات"]
+        why: بلا تعريف يصير كل نزاع خلافًا على ما إذا كانت المعلومة سرية أصلًا.
+      - key: istithnaat
+        label: استثناءات السرية
+        basis: structural
+        patterns: ["الاستثناءات", "لا تسري الالتزامات", "صارت عامه"]
+        why: >-
+          اتفاقية بلا استثناءات (المعلومة العامة، أو المعروفة سلفًا، أو المطلوبة
+          بحكم) تكون فضفاضة إلى حد يصعب معه تنفيذها.
+      - key: gharad_istimal
+        label: الغرض وحصر الاستعمال
+        basis: structural
+        patterns: ["الغرض", "في غير الغرض"]
+        why: الالتزام بعدم الإفشاء وحده لا يمنع الاستعمال في منافسة.
+      - key: muddat_sarayan
+        label: مدة السريان
+        basis: structural
+        patterns: ["مده السريان", "المده", "من تاريخ"]
+        why: التزام سرية بلا مدة محل نظر في نفاذه.
+      - key: radd_itlaf
+        label: رد المعلومات أو إتلافها
+        basis: structural
+        patterns: ["رد المعلومات", "اتلافها", "تتلف"]
+        why: ينهي الحيازة بعد انتهاء الغرض بدل بقائها بلا سند.
+
+  taswiya:
+    name: اتفاق تسوية
+    practice_area: civil
+    template: maktab/skills/siyaghat-alaqud/references/qalib-taswiya.md
+    required:
+      - key: mahal_taswiya
+        label: تحديد محل التسوية
+        basis: structural
+        patterns: ["محل التسويه", "تنصب هذه التسويه"]
+        why: إبراء عن نزاع غير محدد يفتح خلافًا حول ما شملته التسوية وما لم تشمله.
+      - key: muqabil_taswiya
+        label: مقابل التسوية وطريقة أدائه
+        basis: structural
+        patterns: ["مقابل التسويه", "دينارا بحرينيا", "يؤدي"]
+        why: أساس التنفيذ عند الإخلال.
+      - key: ibra
+        label: الإبراء ونطاقه
+        basis: structural
+        patterns: ["الابراء", "يبرئ", "ابراء تاما"]
+        why: جوهر التسوية؛ ونطاقه يحدد ما لا يجوز العودة إليه.
+      - key: inha_khusuma
+        label: إنهاء الخصومة القائمة
+        basis: structural
+        patterns: ["انهاء الدعوي", "التنازل", "اثبات الصلح", "الترك"]
+        why: تسوية لا تُنهي الدعوى تترك العميل مدفوعًا له وما زال مُقاضىً.
+      - key: adam_iqrar
+        label: عدم الإقرار بالمسؤولية
+        basis: structural
+        patterns: ["اقرارا", "عدم الاقرار", "لا يعد اقرارا"]
+        why: يمنع استعمال التسوية دليلًا على الخطأ في نزاع آخر.

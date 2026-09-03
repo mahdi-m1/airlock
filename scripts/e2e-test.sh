@@ -41,6 +41,11 @@ if python3 tools/tests/test_docx.py >"$TMP/docx.log" 2>&1; then
 else
   bad "فشل اختبار إصدار Word"; tail -14 "$TMP/docx.log" | sed 's/^/      /'
 fi
+if python3 tools/tests/test_contracts.py >"$TMP/con.log" 2>&1; then
+  ok "اختبارات قوالب العقود وفاحص البنود ناجحة"
+else
+  bad "فشل اختبار العقود"; tail -14 "$TMP/con.log" | sed 's/^/      /'
+fi
 
 # ── 1. سلامة الحزمة ───────────────────────────────────────────────────
 step "1. سلامة حزمة المكتب"
@@ -230,6 +235,23 @@ if [ $? -eq 0 ] && [ -f "$TMP/mudhakkira.docx" ]; then
   fi
 else
   bad "تعذّر إصدار مسودة مُجازة"; sed 's/^/      /' "$TMP/x2.log" | tail -6
+fi
+
+# ── 6و. فاحص بنود العقود ─────────────────────────────────────────────
+step "6و. فاحص بنود العقود"
+printf '# %s\n%s\n' "عقد عمل" "بين الطرف الأول والطرف الثاني. الأجر 800 دينار." \
+  > "$TMP/aqd-naqis.md"
+python3 tools/contracts/check_clauses.py "$TMP/aqd-naqis.md" --type amal \
+  >"$TMP/c1.log" 2>&1
+if [ $? -eq 1 ] && grep -q "بند إلزامي ناقص" "$TMP/c1.log"; then
+  ok "عقد ناقص البنود يُرفض"
+else
+  bad "مرّ عقد ناقص"
+fi
+if grep -q "تحقق يدوي" "$TMP/c1.log"; then
+  ok "البنود القانونية بلا سند تُبلَّغ ولا تُفرض"
+else
+  bad "بند قانوني فُرض بلا سند"
 fi
 
 # ── 7. الوثيقة النهائية ───────────────────────────────────────────────
