@@ -39,8 +39,18 @@ else
   bad "python3 غير موجود"
 fi
 
-command -v node >/dev/null 2>&1 && ok "node $(node --version)" \
-  || warn "node غير موجود — تحتاجه لتشغيل Paperclip"
+# Paperclip يشترط Node 24.11 فأحدث (engines في حزمة paperclipai)
+if command -v node >/dev/null 2>&1; then
+  NODEV=$(node --version | tr -d 'v')
+  if [ "$(printf '%s\n24.11.0\n' "$NODEV" | sort -V | head -1)" = "24.11.0" ]; then
+    ok "node v$NODEV"
+  else
+    bad "node v$NODEV — Paperclip يشترط 24.11.0 فأحدث"
+    printf '    %sثبّت أحدث نسخة قبل تشغيل onboard.%s\n' "$c_dim" "$c_0"
+  fi
+else
+  warn "node غير موجود — تحتاجه لتشغيل Paperclip (24.11.0 فأحدث)"
+fi
 # ── خلفيات معالجة المستندات ──────────────────────────────────────────
 printf '\n2. معالجة المستندات\n'
 ok "قراءة DOCX · ODT · RTF · HTML · نص — بالمكتبة القياسية"
@@ -92,6 +102,8 @@ fi
 cat <<'STEPS'
 ✓ المتطلبات مكتملة.
 
+الدليل الكامل:  docs/tashghil.md
+
 الخطوات التالية بالترتيب:
 
   1) حصّن البيئة وتحقق
@@ -99,7 +111,9 @@ cat <<'STEPS'
        ./scripts/verify-isolation.sh
 
   2) شغّل Paperclip واستورد المكتب
-       npx paperclipai onboard
+       npx --registry https://registry.npmjs.org paperclipai onboard --yes
+       paperclipai auth login
+       paperclipai token board create --name airlock --never-expires
        npx paperclipai company import ./maktab --dry-run     # فحص أولًا
        npx paperclipai company import ./maktab --target new \
            --new-company-name "مكتب الاستشارات القانونية" --yes
