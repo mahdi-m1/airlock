@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import re
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
@@ -69,6 +70,60 @@ def fetch(url: str, ua: str, timeout: int, allowed: set[str]) -> tuple[str, str]
     return raw.decode("utf-8", errors="replace"), url
 
 
+def set_url(sources_path: Path, key: str, url: str, allowed: set[str]) -> tuple[bool, str]:
+    """تسجيل رابط تشريع في سجل المصادر، بعد التحقق من نطاقه.
+
+    Written textually rather than via a YAML dump: the file's comments carry
+    the honesty notes (numbers are candidates, urls are unverified) that
+    explain it to whoever reads it next, and a dumper would erase them.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return False, "الرابط يجب أن يبدأ بـhttp أو https"
+    host = (parsed.hostname or "").lower()
+    if host not in allowed:
+        return False, (f"النطاق «{host}» خارج قائمة المصادر الرسمية في sources.yaml.\n"
+                       f"      المصدر غير الرسمي لا يدخل المدونة. وإن كان رسميًا "
+                       f"فأضِفه إلى `domains` أولًا.")
+    if '"' in url:
+        return False, "الرابط يحوي علامة اقتباس"
+
+    text = sources_path.read_text(encoding="utf-8")
+    m = re.search(rf"^  - key: {re.escape(key)}$", text, re.MULTILINE)
+    if not m:
+        return False, f"لا تشريع بالمفتاح «{key}» في سجل المصادر"
+    nxt = re.search(r"^  - key: |^\w", text[m.end():], re.MULTILINE)
+    end = m.end() + (nxt.start() if nxt else len(text) - m.end())
+    block = text[m.end():end]
+
+    new_block, n = re.subn(r'^    url: ".*"$', f'    url: "{url}"', block,
+                           count=1, flags=re.MULTILINE)
+    if not n:
+        new_block = block.replace("\n    verified:", f'\n    url: "{url}"\n    verified:', 1)
+        if new_block == block:
+            return False, "تعذّر تحديد موضع الحقل"
+    sources_path.write_text(text[:m.end()] + new_block + text[end:], encoding="utf-8")
+    return True, ""
+
+
+def cmd_urls(src: dict, sources_path: Path) -> int:
+    """عرض حالة الروابط."""
+    filled = [i for i in src.get("instruments", []) if (i.get("url") or "").strip()]
+    empty = [i for i in src.get("instruments", []) if not (i.get("url") or "").strip()]
+    print(f"\n══ روابط المصادر الرسمية ══\n")
+    for i in filled:
+        print(f"  {C_G}✓{C_0} {i['key']:<28} {i['url']}")
+    for i in empty:
+        print(f"  {C_Y}·{C_0} {i['key']:<28} {C_D}{i['title']}{C_0}")
+    print(f"\n  مسجّل: {len(filled)}   ناقص: {len(empty)}")
+    if empty:
+        print(f"\n{C_D}  سجّل الرابط وأنت تتصفح صفحة التشريع:\n"
+              f"    python3 tools/ingest/ingest.py --set-url {empty[0]['key']} \"https://…\"\n"
+              f"  فتُثبَّت الخطوة الأصعب مرة واحدة، ويصير --fetch ممكنًا لاحقًا.{C_0}")
+    print()
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="استيراد المدونة القانونية البحرينية إلى مخزن محلي",
@@ -83,9 +138,27 @@ def main() -> int:
                     help="اقتصار الاستيراد على مفاتيح تشريعات محددة")
     ap.add_argument("--force-unverified", action="store_true",
                     help="استيراد رغم فشل مطابقة العنوان (يبقى verified=false)")
+    ap.add_argument("--set-url", nargs=2, metavar=("KEY", "URL"),
+                    help="تسجيل رابط تشريع في سجل المصادر بعد التحقق من نطاقه")
+    ap.add_argument("--urls", action="store_true", help="عرض حالة روابط المصادر")
     args = ap.parse_args()
 
-    src = load_sources(Path(args.sources))
+    sources_path = Path(args.sources)
+    src = load_sources(sources_path)
+
+    if args.urls:
+        return cmd_urls(src, sources_path)
+    if args.set_url:
+        key, url = args.set_url
+        ok, why = set_url(sources_path, key, url,
+                          {d["host"].lower() for d in src.get("domains", [])})
+        if ok:
+            print(f"{C_G}✓{C_0} سُجّل رابط «{key}»")
+            print(f"{C_D}  يظهر الآن مرجعًا مع كل مادة تُستورد منه.{C_0}")
+            return 0
+        print(f"{C_R}✗ لم يُسجَّل:{C_0} {why}", file=sys.stderr)
+        return 1
+
     cfg = src.get("ingest", {})
     staging = ROOT / cfg.get("staging_dir", "corpus/staging")
     db_path = ROOT / cfg.get("index_db", "corpus/index/corpus.db")

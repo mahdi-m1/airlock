@@ -46,6 +46,11 @@ if python3 tools/tests/test_contracts.py >"$TMP/con.log" 2>&1; then
 else
   bad "فشل اختبار العقود"; tail -14 "$TMP/con.log" | sed 's/^/      /'
 fi
+if python3 tools/tests/test_sources.py >"$TMP/src.log" 2>&1; then
+  ok "اختبارات سجل المصادر وتسجيل الروابط ناجحة"
+else
+  bad "فشل اختبار سجل المصادر"; tail -14 "$TMP/src.log" | sed 's/^/      /'
+fi
 
 # ── 1. سلامة الحزمة ───────────────────────────────────────────────────
 step "1. سلامة حزمة المكتب"

@@ -66,6 +66,18 @@ domains:
 # ── التشريعات المطلوبة ────────────────────────────────────────────────
 # type: law (قانون) | dl (مرسوم بقانون) | dec (مرسوم) | ord (قرار وزاري)
 # رمز الاستشهاد المُولَّد: ⟦BH:<type>:<number>/<year>:م<article>⟧
+#
+# `url` رابط صفحة التشريع في مصدره الرسمي. **كل الحقول فارغة**: لم أصل إلى
+# legislation.bh قط (بيئة البناء تحجب النطاقات البحرينية)، وكتابة روابط
+# مُخمَّنة كانت سترسلك في مطاردة أخطاء مختلقة.
+#
+# سجّله وأنت تتصفح، فتُثبَّت الخطوة الأصعب مرة واحدة:
+#     python3 tools/ingest/ingest.py --set-url civil-code "https://..."
+#
+# الأمر يرفض أي نطاق خارج قائمة `domains` أعلاه، فلا يدخل الملف رابط لمصدر
+# غير رسمي. وبعد ملئه:
+#   • يُسجَّل الرابط مع كل مادة في المدونة، فيظهر في نتائج البحث كمرجع.
+#   • يصير `--fetch` ممكنًا للتحديث الآلي بدل التنزيل اليدوي في كل مرة.
 instruments:
 
   # ── عمالي ──
@@ -75,6 +87,7 @@ instruments:
     year: 2012
     title: قانون العمل في القطاع الأهلي
     practice_areas: [labour]
+    url: ""
     verified: false
   - key: lmra
     type: law
@@ -82,6 +95,7 @@ instruments:
     year: 2006
     title: قانون تنظيم سوق العمل
     practice_areas: [labour]
+    url: ""
     verified: false
 
   # ── مدني ──
@@ -91,6 +105,7 @@ instruments:
     year: 2001
     title: القانون المدني
     practice_areas: [civil, commercial]
+    url: ""
     verified: false
   - key: civil-commercial-procedure
     type: dl
@@ -98,6 +113,7 @@ instruments:
     year: 1971
     title: قانون المرافعات المدنية والتجارية
     practice_areas: [civil, commercial, labour]
+    url: ""
     verified: false
   - key: evidence
     type: dl
@@ -105,6 +121,7 @@ instruments:
     year: 1996
     title: قانون الإثبات في المواد المدنية والتجارية
     practice_areas: [civil, commercial]
+    url: ""
     verified: false
 
   # ── تجاري ──
@@ -114,6 +131,7 @@ instruments:
     year: 1987
     title: قانون التجارة
     practice_areas: [commercial]
+    url: ""
     verified: false
   - key: commercial-companies
     type: dl
@@ -121,6 +139,7 @@ instruments:
     year: 2001
     title: قانون الشركات التجارية
     practice_areas: [commercial]
+    url: ""
     verified: false
   - key: commercial-register
     type: law
@@ -128,6 +147,7 @@ instruments:
     year: 2015
     title: قانون السجل التجاري
     practice_areas: [commercial]
+    url: ""
     verified: false
   - key: arbitration
     type: law
@@ -135,6 +155,7 @@ instruments:
     year: 2015
     title: قانون التحكيم
     practice_areas: [commercial, civil]
+    url: ""
     verified: false
   - key: bankruptcy
     type: law
@@ -142,6 +163,7 @@ instruments:
     year: 2018
     title: قانون إعادة التنظيم والإفلاس
     practice_areas: [commercial]
+    url: ""
     verified: false
 
 # ── إعدادات الاستيراد ─────────────────────────────────────────────────

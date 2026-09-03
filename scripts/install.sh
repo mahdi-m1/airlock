@@ -65,7 +65,7 @@ if python3 scripts/validate.py >/tmp/_v.txt 2>&1; then
 else
   bad "فشل التحقق من الحزمة:"; sed 's/^/    /' /tmp/_v.txt | tail -12
 fi
-for t in test_arabic_citation test_semantic test_documents test_docx test_contracts; do
+for t in test_arabic_citation test_semantic test_documents test_docx test_contracts test_sources; do
   if python3 "tools/tests/$t.py" >/tmp/_t.txt 2>&1; then
     ok "اختبارات $t ناجحة"
   else
