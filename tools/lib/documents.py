@@ -465,6 +465,39 @@ def extract(path: str | Path, *, expect_arabic: bool = True,
                       warnings=warnings + quality_warnings, truncated=truncated)
 
 
+# ── قراءات مستقلة للملف نفسه ──────────────────────────────────────────
+def passes(path: str | Path, *, ocr_lang: str = "ara+eng") -> dict[str, str]:
+    """قراءتان مستقلتان أو أكثر للملف — أساس مقابلة الحقول الحرجة.
+
+    تختلف القراءات في إعداداتها لا في الملف: `pdftotext -layout` يحافظ على
+    التخطيط و`-raw` يقرأ بترتيب المحتوى، وtesseract بـ`--psm 6` يفترض كتلة نص
+    موحدة وبـ`--psm 4` أعمدة. الرقم الذي تختلف عليه قراءتان هو موضع الخطأ.
+
+    الصيغ التي تُقرأ بمحلل حتمي (DOCX، ODT، HTML، نص) تُعاد بقراءة واحدة:
+    تشغيل المحلل نفسه مرتين لا يضيف معلومة، وادعاء اتفاق قراءتين فيه تضليل.
+    """
+    path = Path(path)
+    fmt = detect_format(path)
+    out: dict[str, str] = {}
+    if fmt == "pdf" and shutil.which("pdftotext"):
+        for label, flag in (("pdftotext -layout", "-layout"), ("pdftotext -raw", "-raw")):
+            try:
+                out[label] = _run(["pdftotext", "-enc", "UTF-8", flag, "-q",
+                                   str(path), "-"], label)
+            except DocumentError:
+                continue
+    elif fmt in IMAGE_FORMATS and shutil.which("tesseract"):
+        for label, psm in (("tesseract psm6", "6"), ("tesseract psm4", "4")):
+            try:
+                out[label] = _run(["tesseract", str(path), "stdout", "-l", ocr_lang,
+                                   "--psm", psm], label)
+            except DocumentError:
+                continue
+    if len(out) < 2:
+        out = {"قراءة واحدة": extract(path, expect_arabic=False).text}
+    return out
+
+
 def available_backends() -> dict[str, str | None]:
     """ما هو مثبّت فعلًا لكل صيغة تحتاج أداة خارجية."""
     have_pypdf = False

@@ -17,6 +17,7 @@ skills:
 **أولًا: المستندات المرفقة.** لكل مستند وصل مع الطلب:
 ```
 python3 tools/documents/extract_cli.py <المستند> --out cases/<رقم>/mustanadat/<اسم>.md
+python3 tools/documents/verify_fields.py <المستند> --out cases/<رقم>/mustanadat/<اسم>.tadqiq.md
 ```
 رمز الخروج يحكم: `0` انقل منه · `3` قابِل كل تاريخ ومبلغ واسم بالأصل قبل النقل ·
 `1` لا تبنِ عليه واقعة واذكره في النقص · `2` اتبع الإرشاد المعروض.
