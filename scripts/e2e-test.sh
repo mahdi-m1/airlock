@@ -109,6 +109,10 @@ tmp = pathlib.Path(sys.argv[1])
 src = yaml.safe_load(open('corpus/sources.yaml', encoding='utf-8'))
 src['ingest'].update(staging_dir='tools/tests/fixtures/staging',
                      index_db=str(tmp/'noprov.db'), records_jsonl=str(tmp/'np.jsonl'))
+# يُجرَّد التوثيق صراحةً: السجل الحقيقي قد يحمل توثيقًا أدخله صاحب المكتب،
+# فالاعتماد على كونه فارغًا يجعل الفحص يمر بلا اختبار شيء.
+for inst in src['instruments']:
+    inst.update(url='', gazette_issue='', gazette_date='')
 (tmp/'noprov.yaml').write_text(yaml.safe_dump(src, allow_unicode=True), encoding='utf-8')
 PYX
 python3 tools/ingest/ingest.py --sources "$TMP/noprov.yaml" \

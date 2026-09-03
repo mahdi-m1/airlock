@@ -331,7 +331,9 @@ def main() -> int:
             verified=verified, title_match=round(match, 3),
             practice_areas=inst.get("practice_areas", []),
             gazette_issue=str(inst.get("gazette_issue") or "") or None,
-            gazette_date=str(inst.get("gazette_date") or "") or None)
+            gazette_date=str(inst.get("gazette_date") or "") or None,
+            amendments=inst.get("amendments") or [],
+            consolidated=bool(inst.get("consolidated")))
         n = corpus.put_articles(iid, articles)
         corpus.commit()
 
@@ -345,6 +347,14 @@ def main() -> int:
             print(f"      {C_D}    --url \"…\" --gazette <العدد> --date YYYY-MM-DD{C_0}")
         elif not title_ok:
             print(f"      {C_Y}العنوان لم يطابق ({match:.0%}){C_0}")
+        amends = inst.get("amendments") or []
+        if amends and not inst.get("consolidated"):
+            names = "، ".join(f"{a['type']} {a['number']}/{a['year']}" for a in amends)
+            print(f"      {C_Y}⚠ نص أصلي غير مدمج التعديلات ({len(amends)}): "
+                  f"{names}{C_0}")
+            print(f"      {C_D}استورد النسخة المدمجة إن توفّرت، أو استورد التعديلات\n"
+                  f"      كتشريعات مستقلة. الاستشهاد بمادة عُدّلت خطأ لا تلتقطه\n"
+                  f"      أي بوابة — المادة موجودة ونصها مطابق لكنه ليس النافذ.{C_0}")
         ok += 1
 
     # ── التصدير والخلاصة ──

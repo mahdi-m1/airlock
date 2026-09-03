@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS instruments (
     title_match   REAL,
     gazette_issue TEXT,
     gazette_date  TEXT,
+    amendments    TEXT NOT NULL DEFAULT '[]',
+    consolidated  INTEGER NOT NULL DEFAULT 0,
     practice_areas TEXT NOT NULL DEFAULT '[]'
 );
 CREATE TABLE IF NOT EXISTS articles (
@@ -52,6 +54,27 @@ CREATE VIRTUAL TABLE IF NOT EXISTS articles_fts USING fts5(
 );
 CREATE INDEX IF NOT EXISTS idx_articles_instrument ON articles(instrument_id);
 """
+
+
+def amendment_warning(inst) -> str | None:
+    """تنبيه التعديلات غير المدمجة.
+
+    أخطر عطب في المدونة، ولا تلتقطه أي بوابة: المادة موجودة ورقمها صحيح ونصها
+    مطابق لما استُورد — لكنه النص الأصلي لا النافذ. والمحكمة تطبّق النافذ.
+    """
+    keys = inst.keys()
+    if "amendments" not in keys:
+        return None
+    try:
+        amends = json.loads(inst["amendments"] or "[]")
+    except (ValueError, TypeError):
+        return None
+    if not amends or ("consolidated" in keys and inst["consolidated"]):
+        return None
+    names = "، ".join(f"{a.get('type', '?')} {a.get('number', '?')}/{a.get('year', '?')}"
+                      for a in amends)
+    return (f"نص أصلي غير مدمج التعديلات ({len(amends)}): {names} — "
+            f"تحقق من المادة قبل الاستشهاد بها")
 
 
 def gazette_ref(inst) -> str | None:
@@ -80,6 +103,7 @@ class Hit:
     source_url: str | None
     verified: bool
     gazette: str | None = None
+    amendment_note: str | None = None
     score: float = 0.0
 
     def snippet(self, max_chars: int = 700) -> str:
@@ -109,15 +133,18 @@ class Corpus:
                        title: str, source_url: str | None, source_domain: str | None,
                        sha256: str, verified: bool, title_match: float | None,
                        practice_areas: list[str], gazette_issue: str | None = None,
-                       gazette_date: str | None = None) -> None:
+                       gazette_date: str | None = None,
+                       amendments: list[dict] | None = None,
+                       consolidated: bool = False) -> None:
         self.db.execute(
             "INSERT OR REPLACE INTO instruments (id,key,type,number,year,title,"
             "source_url,source_domain,retrieved_at,sha256,verified,title_match,"
-            "gazette_issue,gazette_date,practice_areas)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "gazette_issue,gazette_date,amendments,consolidated,practice_areas)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (id, key, type, number, year, normalize(title), source_url, source_domain,
              datetime.now(timezone.utc).isoformat(timespec="seconds"), sha256,
              int(verified), title_match, gazette_issue or None, gazette_date or None,
+             json.dumps(amendments or [], ensure_ascii=False), int(consolidated),
              json.dumps(practice_areas, ensure_ascii=False)),
         )
 
@@ -204,6 +231,7 @@ class Corpus:
                 source_url=inst["source_url"],
                 verified=bool(inst["verified"]),
                 gazette=gazette_ref(inst),
+                amendment_note=amendment_warning(inst),
                 score=-float(row["score"]),
             ))
             if len(hits) >= limit:
@@ -241,6 +269,9 @@ class Corpus:
             "instruments": q("SELECT COUNT(*) FROM instruments"),
             "verified": q("SELECT COUNT(*) FROM instruments WHERE verified=1"),
             "articles": q("SELECT COUNT(*) FROM articles"),
+            "unconsolidated": q(
+                "SELECT COUNT(*) FROM instruments WHERE verified=1 "
+                "AND consolidated=0 AND amendments NOT IN ('[]','')"),
             "oldest_retrieved_at": oldest,
         }
 

@@ -134,6 +134,17 @@ domains:
 #
 # وعند `require_gazette_provenance: true` في config/office.yaml (الافتراضي)
 # لا يُوسم تشريع `verified` بدونها، فلا يستطيع أي وكيل الاستشهاد به.
+#
+# `amendments` التشريعات التي عدّلت هذا النص، و`consolidated` هل النص المستورد
+# مدمج التعديلات أم النسخة الأصلية كما صدرت.
+#
+# هذا أخطر ما في المدونة: الاستشهاد بمادة عُدّلت — بنصها الأصلي — خطأ لا تلتقطه
+# أي بوابة، لأن المادة موجودة ورقمها صحيح ونصها مطابق لما استُورد. والمحكمة
+# تطبّق النص النافذ لا النص الأصلي.
+#
+# فعند `consolidated: false` مع وجود تعديلات، يظهر تنبيه بارز في كل نتيجة بحث
+# وكل عرض مادة وفي تقرير بوابة الإسناد. استورد النسخة المدمجة إن توفّرت، أو
+# استورد التعديلات نفسها كتشريعات مستقلة وراجع أثرها على كل مادة تستشهد بها.
 instruments:
 
   # ── عمالي ──
@@ -143,9 +154,15 @@ instruments:
     year: 2012
     title: قانون العمل في القطاع الأهلي
     practice_areas: [labour]
-    url: ""
-    gazette_issue: ""
-    gazette_date: ""
+    url: "https://legalaffairs.gov.bh/Legislation/HTM/K3612"
+    gazette_issue: "3063"
+    gazette_date: "2012-08-02"
+    # أفاد بها صاحب المكتب — تُتحقق عند استيراد كل منها
+    amendments:
+      - { type: law, number: 31, year: 2014 }
+      - { type: law, number: 37, year: 2015 }
+      - { type: dl, number: 59, year: 2018 }
+    consolidated: false
     verified: false
   - key: lmra
     type: law
@@ -156,6 +173,8 @@ instruments:
     url: ""
     gazette_issue: ""
     gazette_date: ""
+    amendments: []
+    consolidated: false
     verified: false
 
   # ── مدني ──
@@ -168,6 +187,8 @@ instruments:
     url: ""
     gazette_issue: ""
     gazette_date: ""
+    amendments: []
+    consolidated: false
     verified: false
   - key: civil-commercial-procedure
     type: dl
@@ -178,6 +199,8 @@ instruments:
     url: ""
     gazette_issue: ""
     gazette_date: ""
+    amendments: []
+    consolidated: false
     verified: false
   - key: evidence
     type: dl
@@ -188,6 +211,8 @@ instruments:
     url: ""
     gazette_issue: ""
     gazette_date: ""
+    amendments: []
+    consolidated: false
     verified: false
 
   # ── تجاري ──
@@ -200,6 +225,8 @@ instruments:
     url: ""
     gazette_issue: ""
     gazette_date: ""
+    amendments: []
+    consolidated: false
     verified: false
   - key: commercial-companies
     type: dl
@@ -210,6 +237,8 @@ instruments:
     url: ""
     gazette_issue: ""
     gazette_date: ""
+    amendments: []
+    consolidated: false
     verified: false
   - key: commercial-register
     type: law
@@ -220,6 +249,8 @@ instruments:
     url: ""
     gazette_issue: ""
     gazette_date: ""
+    amendments: []
+    consolidated: false
     verified: false
   - key: arbitration
     type: law
@@ -230,6 +261,8 @@ instruments:
     url: ""
     gazette_issue: ""
     gazette_date: ""
+    amendments: []
+    consolidated: false
     verified: false
   - key: bankruptcy
     type: law
@@ -240,6 +273,8 @@ instruments:
     url: ""
     gazette_issue: ""
     gazette_date: ""
+    amendments: []
+    consolidated: false
     verified: false
 
 # ── إعدادات الاستيراد ─────────────────────────────────────────────────

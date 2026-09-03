@@ -28,7 +28,7 @@ import yaml  # noqa: E402
 from lib import calibrate as cal  # noqa: E402
 from lib import semantic  # noqa: E402
 from lib.citation import find_malformed, parse_all, render_clean  # noqa: E402
-from lib.corpus import Corpus  # noqa: E402
+from lib.corpus import Corpus, amendment_warning  # noqa: E402
 
 C_R, C_G, C_Y, C_D, C_0 = "\033[31m", "\033[32m", "\033[33m", "\033[2m", "\033[0m"
 
@@ -86,6 +86,8 @@ def check(path: Path, kind: str, db: str, cfg: dict, *, deep: bool = True) -> di
     problems: list[str] = []
     resolved: list[dict] = []
     adjudicate: list[dict] = []
+    amendment_notes: list[str] = []
+    warned: set[str] = set()
 
     # ── 1. علامات مشوّهة — أرجح أشكال الاستشهاد الملفَّق ──
     for pos, raw in find_malformed(text):
@@ -106,6 +108,12 @@ def check(path: Path, kind: str, db: str, cfg: dict, *, deep: bool = True) -> di
         inst = corpus.instrument(c.instrument_id)
         entry = {"marker": c.raw, "ref": c.ref_id,
                  "instrument": inst["title"], "line": line}
+        if note := amendment_warning(inst):
+            entry["amendment_note"] = note
+            # تنبيه واحد لكل تشريع: تكراره مع كل استشهاد ضجيج يُخفي غيره
+            if c.instrument_id not in warned:
+                warned.add(c.instrument_id)
+                amendment_notes.append(f"{inst['title']}: {note}")
 
         # ── 2ب. التدقيق الدلالي: هل تقول المادة ما نُسب إليها؟ ──
         art = corpus.article(c.instrument_id, c.article_key) if c.article_key else None
@@ -149,6 +157,7 @@ def check(path: Path, kind: str, db: str, cfg: dict, *, deep: bool = True) -> di
         "resolved": resolved,
         "adjudicate": adjudicate,
         "problems": problems,
+        "amendment_notes": amendment_notes,
     }
 
 
@@ -240,6 +249,8 @@ def main() -> int:
                 extra = f"  {C_D}[{v}"
                 extra += f"، تداخل {r['overlap']:.0%}]{C_0}" if "overlap" in r else f"]{C_0}"
             print(f"  {col}{mark}{C_0} سطر {r['line']}: {r['ref']} — {r['instrument']}{extra}")
+        for n in report["amendment_notes"]:
+            print(f"  {C_Y}⚠{C_0} {n}")
         for a in report["adjudicate"]:
             for d in a["doubts"]:
                 print(f"      {C_Y}?{C_0} {d}")
@@ -255,6 +266,11 @@ def main() -> int:
             print(f"{C_Y}⏳ اجتاز فحص الوجود، و{n} إسناد يحتاج تحكيمًا دلاليًا.{C_0}")
             print(f"{C_D}  المادة موجودة، لكن كونها تقول ما نُسب إليها لم يثبت آليًا.\n"
                   f"  لا تُسلَّم الوثيقة قبل حسم هذه البنود.{C_0}\n")
+        elif report["amendment_notes"]:
+            print(f"{C_G}✓ قُبلت المسودة{C_0} — كل إسناد يُحل ودلالته مسنودة، "
+                  f"{C_Y}مع تنبيه تعديلات.{C_0}")
+            print(f"{C_D}  المادة موجودة ونصها مطابق لما استُورد، لكنه النص الأصلي\n"
+                  f"  لا النافذ. راجع أثر التعديلات قبل الاعتماد.{C_0}\n")
         else:
             print(f"{C_G}✓ قُبلت المسودة — كل إسناد يُحل، ودلالته مسنودة.{C_0}\n")
 

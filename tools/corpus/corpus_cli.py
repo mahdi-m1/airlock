@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 
 from lib.citation import Citation  # noqa: E402
-from lib.corpus import Corpus, gazette_ref  # noqa: E402
+from lib.corpus import Corpus, amendment_warning, gazette_ref  # noqa: E402
 
 DEFAULT_DB = ROOT / "corpus/index/corpus.db"
 
@@ -47,7 +47,8 @@ def cmd_search(args) -> int:
         print(json.dumps([{
             "marker": h.marker, "instrument": h.instrument_title,
             "article": h.label, "text": h.snippet(args.chars),
-            "gazette": h.gazette, "source_url": h.source_url,
+            "gazette": h.gazette, "amendment_note": h.amendment_note,
+            "source_url": h.source_url,
         } for h in hits], ensure_ascii=False, indent=2))
         return 0 if hits else 1
 
@@ -63,6 +64,8 @@ def cmd_search(args) -> int:
         print(f"   {h.snippet(args.chars)}")
         if h.gazette:
             print(f"   {h.gazette}")
+        if h.amendment_note:
+            print(f"   ⚠ {h.amendment_note}")
         if h.source_url:
             print(f"   المصدر: {h.source_url}")
         print()
@@ -81,11 +84,12 @@ def cmd_article(args) -> int:
         return 1
     marker = (f"⟦BH:{inst['type']}:{inst['number']}/{inst['year']}"
               f":م{art['number']}{'مكرر' if art['bis'] else ''}⟧")
-    gz = gazette_ref(inst)
+    gz, amend = gazette_ref(inst), amendment_warning(inst)
     if args.json:
         print(json.dumps({"marker": marker, "instrument": inst["title"],
                           "article": art["label"], "text": art["text"],
-                          "gazette": gz, "source_url": inst["source_url"],
+                          "gazette": gz, "amendment_note": amend,
+                          "source_url": inst["source_url"],
                           "citable": bool(inst["verified"])},
                          ensure_ascii=False, indent=2))
         return 0
@@ -93,6 +97,8 @@ def cmd_article(args) -> int:
     print(f"العلامة: {marker}\n\n{art['text']}\n")
     if gz:
         print(gz)
+    if amend:
+        print(f"⚠ {amend}")
     if inst["source_url"]:
         print(f"المصدر: {inst['source_url']}")
     if not inst["verified"]:
@@ -121,6 +127,9 @@ def cmd_stats(args) -> int:
     print(f"\nالمدونة القانونية المحلية")
     print(f"  التشريعات   : {st['verified']} مُتحقق من {st['instruments']}")
     print(f"  المواد      : {st['articles']}")
+    if st.get("unconsolidated"):
+        print(f"  ⚠ غير مدمج  : {st['unconsolidated']} تشريعًا نصه الأصلي "
+              f"وله تعديلات لاحقة")
     if st["oldest_retrieved_at"]:
         try:
             age = (datetime.now(timezone.utc)
