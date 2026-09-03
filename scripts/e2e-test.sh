@@ -31,6 +31,11 @@ if python3 tools/tests/test_semantic.py >"$TMP/sem.log" 2>&1; then
 else
   bad "فشل اختبار التدقيق الدلالي"; tail -14 "$TMP/sem.log" | sed 's/^/      /'
 fi
+if python3 tools/tests/test_documents.py >"$TMP/doc.log" 2>&1; then
+  ok "اختبارات معالجة المستندات ناجحة (أمان + دقة)"
+else
+  bad "فشل اختبار المستندات"; tail -14 "$TMP/doc.log" | sed 's/^/      /'
+fi
 
 # ── 1. سلامة الحزمة ───────────────────────────────────────────────────
 step "1. سلامة حزمة المكتب"

@@ -41,24 +41,39 @@ fi
 
 command -v node >/dev/null 2>&1 && ok "node $(node --version)" \
   || warn "node غير موجود — تحتاجه لتشغيل Paperclip"
-command -v pdftotext >/dev/null 2>&1 && ok "pdftotext (لتحويل مصادر PDF)" \
-  || warn "pdftotext غير موجود — ستحتاجه إن كان مصدر رسمي بصيغة PDF (حزمة poppler-utils)"
+# ── خلفيات معالجة المستندات ──────────────────────────────────────────
+printf '\n2. معالجة المستندات\n'
+ok "DOCX · ODT · RTF · HTML · نص — بالمكتبة القياسية، بلا تثبيت"
+if command -v pdftotext >/dev/null 2>&1; then ok "قراءة PDF (poppler)"
+elif python3 -c 'import pypdf' 2>/dev/null; then ok "قراءة PDF (pypdf)"
+else warn "لا خلفية لقراءة PDF:  sudo apt install poppler-utils"
+     printf '    %sعقود العملاء والمصادر الرسمية كثيرًا ما تكون PDF.%s\n' "$c_dim" "$c_0"; fi
+if command -v tesseract >/dev/null 2>&1; then
+  tesseract --list-langs 2>/dev/null | grep -q '^ara$' \
+    && ok "التعرّف الضوئي مع العربية" \
+    || warn "tesseract بلا الحزمة العربية:  sudo apt install tesseract-ocr-ara"
+else
+  warn "لا تعرّف ضوئي:  sudo apt install tesseract-ocr tesseract-ocr-ara"
+  printf '    %sالمستندات الممسوحة والصور لن تُقرأ (تُرفض صراحةً ولا تُبتلع).%s\n' "$c_dim" "$c_0"
+fi
 
 # ── فحص الحزمة ───────────────────────────────────────────────────────
-printf '\n2. سلامة الحزمة\n'
+printf '\n3. سلامة الحزمة\n'
 if python3 scripts/validate.py >/tmp/_v.txt 2>&1; then
-  ok "حزمة المكتب سليمة (10 وكلاء، 10 مهارات، خط بـ10 مراحل)"
+  ok "حزمة المكتب سليمة (10 وكلاء، 11 مهارة، خط بـ10 مراحل)"
 else
   bad "فشل التحقق من الحزمة:"; sed 's/^/    /' /tmp/_v.txt | tail -12
 fi
-if python3 tools/tests/test_arabic_citation.py >/tmp/_t.txt 2>&1; then
-  ok "اختبارات التقسيم والإسناد ناجحة"
-else
-  bad "فشل اختبار الأدوات:"; sed 's/^/    /' /tmp/_t.txt | tail -8
-fi
+for t in test_arabic_citation test_semantic test_documents; do
+  if python3 "tools/tests/$t.py" >/tmp/_t.txt 2>&1; then
+    ok "اختبارات $t ناجحة"
+  else
+    bad "فشل $t:"; sed 's/^/    /' /tmp/_t.txt | tail -8
+  fi
+done
 
 # ── ملف البيئة ───────────────────────────────────────────────────────
-printf '\n3. تحصين البيئة\n'
+printf '\n4. تحصين البيئة\n'
 if [ -f config/env.local ]; then
   ok "config/env.local موجود"
 else
