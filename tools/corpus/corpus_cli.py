@@ -129,7 +129,61 @@ def cmd_stats(args) -> int:
         print(f"  {'✓' if row['verified'] else '~'} {row['id']:<16} "
               f"{row['n']:>4} مادة   {row['title']}")
     print()
+    _next_step(corpus, st)
     return 0
+
+
+def _next_step(corpus: Corpus, st: dict) -> None:
+    """الخطوة التالية في بناء المدونة — بناءً على حالتها الفعلية.
+
+    بناء المدونة عدة مراحل يسهل نسيان ترتيبها، وكل مرحلة تُغيّر ما يفعله
+    المكتب: بلا مدونة لا إسناد، وبلا معايرة عتبة مُخمَّنة، وبلا أسناد يبقى
+    فاحص العقود منبّهًا لا حاجزًا. فالأداة تقول أين أنت وما التالي.
+    """
+    import json as _json
+
+    sources = ROOT / "corpus/sources.yaml"
+    want: list[str] = []
+    if sources.exists():
+        import yaml
+        cfg = yaml.safe_load(sources.read_text(encoding="utf-8")) or {}
+        have = {r["key"] for r in corpus.db.execute("SELECT key FROM instruments")}
+        want = [i["key"] for i in cfg.get("instruments", []) if i["key"] not in have]
+
+    print("الخطوة التالية:")
+    if want:
+        print(f"  ينقص {len(want)} تشريعًا. نزّل نصوصها الرسمية إلى corpus/staging/")
+        for k in want[:4]:
+            print(f"    corpus/staging/{k}.html")
+        if len(want) > 4:
+            print(f"    … و{len(want) - 4} غيرها")
+        print("  ثم:  python3 tools/ingest/ingest.py --from-staging")
+        print()
+        return
+
+    calib = ROOT / "corpus/index/calibration.json"
+    reliable = False
+    if calib.exists():
+        try:
+            reliable = bool(_json.loads(calib.read_text(encoding="utf-8")).get("reliable"))
+        except ValueError:
+            pass
+    if not reliable:
+        print("  المدونة مكتملة. عايِر عتبة التدقيق الدلالي:")
+        print("    python3 scripts/calibrate-threshold.py --write")
+        print()
+        return
+
+    clauses = ROOT / "config/clauses.yaml"
+    if clauses.exists() and 'sanad: ""' in clauses.read_text(encoding="utf-8"):
+        print("  العتبة مُعايَرة. املأ أسناد بنود العقود لتُفرض بدل أن تُرصد:")
+        print("    python3 tools/contracts/fill_sanad.py")
+        print()
+        return
+
+    print("  المدونة جاهزة والعتبة مُعايَرة والأسناد مملوءة.")
+    print("  راجع دوريًا:  python3 tools/contracts/fill_sanad.py --status")
+    print()
 
 
 def main() -> int:
