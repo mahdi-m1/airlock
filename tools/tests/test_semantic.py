@@ -89,5 +89,56 @@ check("لا يبتلع ادعاء العلامة المجاورة", "بطلان"
 check("الادعاء الثاني يخص مادته", "بطلان" in c2 and "ثلاثين" not in c2, True)
 check("العلامات تُزال من الادعاء", "⟦" in c1 or "⟦" in c2, False)
 
+
+print("\n── معايرة العتبة ──")
+import math, random  # noqa: E402
+from lib.calibrate import MIN_ARTICLES, calibrate  # noqa: E402
+from lib.arabic import fold, stem  # noqa: E402
+
+
+def _synthetic_corpus(n=250, seed=7):
+    """مدونة اصطناعية لاختبار حساب المعايرة وحده — لا محتوى قانوني."""
+    rng = random.Random(seed)
+    topics = [
+        "الأجر الأساسي العلاوة البدل الحد الأدنى الاستقطاع الدفع الشهري",
+        "الإجازة السنوية المرضية الوضع الرصيد التأجيل البدل النقدي",
+        "الفصل الإنهاء الإخطار المهلة التعسفي التعويض الاستقالة الخدمة",
+        "السلامة المهنية الوقاية الإصابة المخاطر التدريب المعدات الحماية",
+        "الشركة الحصص الشريك المدير الجمعية العمومية التصفية",
+        "العقد الالتزام الفسخ التنفيذ العيني الشرط الجزائي المدين الدائن",
+        "البينة الشهادة المحرر الرسمي العرفي القرينة اليمين الخبرة",
+        "التقادم المدة الانقطاع الوقف السقوط الميعاد الطعن الاستئناف",
+    ]
+    generic = "يجب على وفق أحكام هذا القانون في حالة أن يكون الطرف خلال المدة".split()
+    rows = []
+    for i in range(n):
+        w = topics[i % len(topics)].split()
+        body = rng.sample(w, k=min(len(w), rng.randint(6, 9))) + rng.sample(generic, k=6)
+        rng.shuffle(body)
+        rows.append((f"law:{i // 32 + 1}/2020", " ".join(body)))
+    df = {}
+    for _, t in rows:
+        for tok in {stem(x) for x in fold(t).split() if len(x) > 2}:
+            df[tok] = df.get(tok, 0) + 1
+    idf = {t: math.log((len(rows) + 1) / (c + 0.5)) for t, c in df.items()}
+    return rows, idf
+
+
+rows, idf = _synthetic_corpus()
+big = calibrate(rows, idf)
+check("مدونة بحجم حقيقي ⇒ موثوقة", big.reliable, True)
+check("العتبة ترتفع فوق الافتراضية", big.threshold > 0.35, True)
+check("الفوات ضمن المستهدف", big.miss_rate <= 0.06, True)
+check("لا NaN في المخرج (JSON صالحة)", "NaN" in big.to_json(), False)
+check("العتبة لا تتجاوز السقف", big.threshold <= 0.75, True)
+
+small = calibrate(rows[:10], idf)
+check("مدونة صغيرة ⇒ غير موثوقة", small.reliable, False)
+check("مدونة صغيرة ⇒ لا معدلات مضللة", small.miss_rate, None)
+
+check("المعايرة قابلة لإعادة الإنتاج",
+      calibrate(rows, idf).threshold, big.threshold)
+check("حد الموثوقية معلن", MIN_ARTICLES >= 100, True)
+
 print(f"\n{'✓ كل الاختبارات ناجحة' if not FAIL else f'✗ {FAIL} اختبار فاشل'}\n")
 sys.exit(1 if FAIL else 0)

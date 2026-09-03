@@ -99,6 +99,7 @@ cat <<'STEPS'
        # نزّل النصوص الرسمية إلى corpus/staging/<key>.html
        python3 tools/ingest/ingest.py --from-staging
        python3 tools/corpus/corpus_cli.py stats
+       python3 scripts/calibrate-threshold.py --write   # عايِر عتبة الدلالة
 
   5) جرّب قضية اصطناعية من طرف إلى طرف
        ./scripts/e2e-test.sh

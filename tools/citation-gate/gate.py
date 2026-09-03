@@ -25,6 +25,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import yaml  # noqa: E402
 
+from lib import calibrate as cal  # noqa: E402
 from lib import semantic  # noqa: E402
 from lib.citation import find_malformed, parse_all, render_clean  # noqa: E402
 from lib.corpus import Corpus  # noqa: E402
@@ -45,6 +46,27 @@ def load_office_config() -> dict:
         return yaml.safe_load(fh) or {}
 
 
+DEFAULT_OVERLAP = 0.35
+CALIBRATION = ROOT / "corpus/index/calibration.json"
+
+
+def resolve_threshold(rules: dict) -> tuple[float, str]:
+    """عتبة التداخل: مُعايَرة من المدونة إن أمكن، وإلا القيمة الثابتة.
+
+    `auto` يجعل العتبة ترتفع تلقائيًا كلما كبرت المدونة، بقيمة مقيسة من
+    المدونة نفسها بدل رقم مُخمَّن — ودون أن يعتمد ذلك على تذكّر أحد.
+    """
+    raw = rules.get("min_semantic_overlap", DEFAULT_OVERLAP)
+    if isinstance(raw, str) and raw.strip().lower() == "auto":
+        if (t := cal.load(CALIBRATION)) is not None:
+            return t, "مُعايَرة"
+        return DEFAULT_OVERLAP, "افتراضية (لم تُعاير بعد)"
+    try:
+        return float(raw), "ثابتة"
+    except (TypeError, ValueError):
+        return DEFAULT_OVERLAP, "افتراضية"
+
+
 def section_bodies(text: str) -> list[tuple[str, str]]:
     """تقطيع الوثيقة إلى (عنوان، متن) حسب العناوين."""
     heads = list(re.finditer(r"^\s{0,3}#{1,4}\s*(.+)$", text, re.MULTILINE))
@@ -59,7 +81,7 @@ def check(path: Path, kind: str, db: str, cfg: dict, *, deep: bool = True) -> di
     text = path.read_text(encoding="utf-8")
     rules = cfg.get("citations", {})
     min_needed = int(rules.get(f"min_citations_{kind}", 0) or 0)
-    min_overlap = float(rules.get("min_semantic_overlap", 0.35) or 0.35)
+    min_overlap, overlap_src = resolve_threshold(rules)
 
     problems: list[str] = []
     resolved: list[dict] = []
@@ -117,6 +139,8 @@ def check(path: Path, kind: str, db: str, cfg: dict, *, deep: bool = True) -> di
     return {
         "file": str(path), "kind": kind,
         "passed": not problems,
+        "overlap_threshold": min_overlap,
+        "overlap_threshold_source": overlap_src,
         "needs_adjudication": bool(adjudicate),
         "citations_resolved": len(resolved),
         "citations_total": len(cits),
@@ -200,8 +224,12 @@ def main() -> int:
     else:
         print(f"\n══ بوابة الإسناد — {args.file.name} ══")
         mode = "وجود + دلالة" if not args.no_semantic else "وجود فقط"
+        thr = ("   عتبة الدلالة: "
+               f"{report['overlap_threshold']:g} ({report['overlap_threshold_source']})"
+               if not args.no_semantic else "")
         print(f"{C_D}النوع: {args.kind}   الفحص: {mode}   الإسنادات: "
-              f"{report['citations_resolved']}/{report['citations_total']} مُحلّة{C_0}\n")
+              f"{report['citations_resolved']}/{report['citations_total']} مُحلّة"
+              f"{thr}{C_0}\n")
         for r in report["resolved"]:
             v = r.get("verdict")
             mark, col = (f"?", C_Y) if v == "يحتاج تحكيمًا" else ("✓", C_G)
