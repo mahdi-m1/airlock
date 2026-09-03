@@ -58,8 +58,13 @@
 [docs/tashghil.md](docs/tashghil.md)**
 
 ```bash
-./scripts/install.sh          # يفحص المتطلبات ويرشدك للخطوات
+./scripts/setup.sh            # يفحص، ويثبّت الناقص، ويشغّل كل الاختبارات
+./scripts/setup.sh --dry-run  # اعرض ما سيُنفَّذ ولا تنفّذ شيئًا
+./scripts/install.sh          # فحص وإرشاد فقط، بلا تثبيت
 ```
+
+`setup.sh` لا يثبّت شيئًا قبل أن يعرض قائمة الأوامر بالضبط ويسأل، ويعيد فحص كل
+ما ثبّته بعده — فالتقرير النهائي من فحص فعلي لا من نجاح أمر التثبيت.
 
 يتطلب: Linux، `bubblewrap`، Python ≥ 3.10 مع PyYAML وsqlite3/FTS5،
 وNode ≥ 24.11 (شرط Paperclip نفسه).

@@ -149,6 +149,52 @@ check("تقرير الخلفيات مكتمل", set(b), {"pdf", "ocr", "legacy_d
 for k, v in b.items():
     print(f"      {k:<12} {v or '— غير مثبّت'}")
 
+print("\n── مسار PDF ──")
+# يُبنى ملف PDF أدنى ما يصح داخل الاختبار: مسار PDF كان يعتمد على أداة خارجية
+# فبقي بلا تغطية. يُتخطى بإعلان صريح حين لا خلفية مثبّتة — لا يُدّعى نجاحه.
+
+
+def _mini_pdf(path, content, with_font=True):
+    objs = [b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources "
+            + (b"<< /Font << /F1 5 0 R >> >>" if with_font else b"<< >>")
+            + b" /Contents 4 0 R >>",
+            b"<< /Length " + str(len(content)).encode() + b" >>\nstream\n"
+            + content + b"\nendstream"]
+    if with_font:
+        objs.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+    out, offs = bytearray(b"%PDF-1.4\n"), []
+    for i, o in enumerate(objs, 1):
+        offs.append(len(out))
+        out += f"{i} 0 obj\n".encode() + o + b"\nendobj\n"
+    xref = len(out)
+    out += f"xref\n0 {len(objs)+1}\n".encode() + b"0000000000 65535 f \n"
+    for off in offs:
+        out += f"{off:010d} 00000 n \n".encode()
+    out += (f"trailer\n<< /Size {len(objs)+1} /Root 1 0 R >>\nstartxref\n{xref}\n"
+            "%%EOF\n").encode()
+    path.write_bytes(bytes(out))
+    return path
+
+
+if doc.available_backends().get("pdf"):
+    txt = _mini_pdf(TMP / "text.pdf",
+                    b"BT /F1 14 Tf 72 760 Td (Article 111 of Law 36 of 2012) Tj ET")
+    ex = doc.extract(txt, expect_arabic=False)
+    check("PDF بطبقة نصية يُقرأ", "Article 111" in ex.text, True)
+    check("والصيغة من التوقيع", ex.fmt, "pdf")
+    check("وعدد الصفحات مُعلن", ex.pages, 1)
+
+    blank = _mini_pdf(TMP / "scan.pdf", b"", with_font=False)
+    ex2 = doc.extract(blank)
+    check("PDF بلا طبقة نصية يُرفض", ex2.ok, False)
+    check("ولا يُعاد نص فارغ بصمت", bool(ex2.warnings), True)
+    check("والسبب يسمّي المسح الضوئي",
+          any("ممسوحة" in w for w in ex2.warnings), True)
+else:
+    print("  ⊘ لا خلفية PDF مثبّتة — تُخطّى (sudo apt install poppler-utils)")
+
 print("\n── خلفية اختيارية مكسورة ──")
 # حزمة مثبّتة مكسورة الاعتماديات ترمي ما ليس ImportError. رأيناها فعلًا:
 # pypdf فوق cryptography معطوبة ترمي PanicException من امتداد Rust، وهي ترث
