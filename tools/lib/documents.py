@@ -298,7 +298,14 @@ def _extract_pdf(path: Path) -> tuple[str, str, int]:
         r = pypdf.PdfReader(str(path))
         return ("\n\n".join((p.extract_text() or "") for p in r.pages),
                 "pypdf", len(r.pages))
-    except ImportError:
+    except BaseException as exc:  # noqa: BLE001 — انظر التعليق أدناه
+        if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+            raise
+        # فحص خلفية اختيارية لا يجوز أن يُسقط الأداة. حزمة مثبّتة مكسورة
+        # الاعتماديات ترمي ما ليس ImportError: pypdf فوق cryptography معطوبة
+        # ترمي PanicException من امتداد Rust — وهي ترث BaseException لا
+        # Exception، فلا يلتقطها `except Exception`. النتيجة كانت انهيارًا
+        # بأثر Rust في وجه من سأل «ما الخلفيات المثبّتة؟».
         pass
     raise DocumentError(
         "لا خلفية لقراءة PDF. ثبّت إحداها:\n"
@@ -464,8 +471,9 @@ def available_backends() -> dict[str, str | None]:
     try:
         import pypdf  # noqa: F401,PLC0415
         have_pypdf = True
-    except ImportError:
-        pass
+    except BaseException as exc:  # noqa: BLE001 — انظر التعليق في _extract_pdf
+        if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+            raise
     return {
         "pdf": ("pdftotext (poppler)" if shutil.which("pdftotext")
                 else "pypdf" if have_pypdf else None),

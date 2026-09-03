@@ -3,6 +3,7 @@
 Hostile input first: these files are what an opposing party could send.
 """
 import io
+import shutil
 import sys
 import tempfile
 import zipfile
@@ -147,6 +148,48 @@ b = doc.available_backends()
 check("تقرير الخلفيات مكتمل", set(b), {"pdf", "ocr", "legacy_doc"})
 for k, v in b.items():
     print(f"      {k:<12} {v or '— غير مثبّت'}")
+
+print("\n── خلفية اختيارية مكسورة ──")
+# حزمة مثبّتة مكسورة الاعتماديات ترمي ما ليس ImportError. رأيناها فعلًا:
+# pypdf فوق cryptography معطوبة ترمي PanicException من امتداد Rust، وهي ترث
+# BaseException لا Exception. فحص «ما المثبّت؟» كان ينهار بأثر Rust.
+import importlib.abc  # noqa: E402
+import importlib.machinery  # noqa: E402
+
+
+class _Panic(BaseException):
+    """يحاكي pyo3_runtime.PanicException — يرث BaseException لا Exception."""
+
+
+class _Exploding(importlib.abc.MetaPathFinder, importlib.abc.Loader):
+    def find_spec(self, name, path=None, target=None):
+        if name == "pypdf":
+            return importlib.machinery.ModuleSpec(name, self)
+        return None
+
+    def create_module(self, spec):
+        raise _Panic("Python API call failed")
+
+    def exec_module(self, module):
+        raise _Panic("Python API call failed")
+
+
+sys.modules.pop("pypdf", None)
+sys.meta_path.insert(0, _Exploding())
+try:
+    b2 = doc.available_backends()
+    check("استيراد ينهار لا يُسقط تقرير الخلفيات", set(b2), {"pdf", "ocr", "legacy_doc"})
+    if not shutil.which("pdftotext"):
+        check("ويُبلَّغ عن غياب الخلفية بدل الانهيار", b2["pdf"], None)
+        try:
+            doc._extract_pdf(Path("/nonexistent.pdf"))
+        except doc.DocumentError as exc:
+            check("والرسالة تقول ما يُثبَّت", "poppler-utils" in str(exc), True)
+        except _Panic:
+            check("والرسالة تقول ما يُثبَّت", "انهار بـPanic", True)
+finally:
+    sys.meta_path.pop(0)
+    sys.modules.pop("pypdf", None)
 
 print(f"\n{'✓ كل الاختبارات ناجحة' if not FAIL else f'✗ {FAIL} اختبار فاشل'}\n")
 sys.exit(1 if FAIL else 0)

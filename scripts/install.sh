@@ -5,21 +5,26 @@ set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 c_red=$'\033[31m'; c_grn=$'\033[32m'; c_yel=$'\033[33m'; c_dim=$'\033[2m'; c_0=$'\033[0m'
-FAIL=0
+FAIL=0; FAIL_B=0
 ok()   { printf '  %s✓%s %s\n' "$c_grn" "$c_0" "$1"; }
 bad()  { printf '  %s✗%s %s\n' "$c_red" "$c_0" "$1"; FAIL=$((FAIL+1)); }
+# متطلب الوضع (ب) وحده: الأدوات تعمل بدونه، فلا يوقف من يريد بناء المدونة
+badb() { printf '  %s✗%s %s %s(للوضع ب)%s\n' "$c_red" "$c_0" "$1" "$c_dim" "$c_0"
+         FAIL_B=$((FAIL_B+1)); }
 warn() { printf '  %s!%s %s\n' "$c_yel" "$c_0" "$1"; }
 
-printf '\n══ تثبيت مكتب الاستشارات القانونية ══\n\n1. المتطلبات\n'
+printf '\n══ تثبيت مكتب الاستشارات القانونية ══\n'
+printf '%sالوضع (أ) الأدوات وحدها: بايثون فقط. الوضع (ب) المكتب الكامل: يضيف Paperclip والعزل.%s\n' "$c_dim" "$c_0"
+printf '\n1. المتطلبات\n'
 
 # ── نظام التشغيل و bwrap: أساس ضمان العزل ────────────────────────────
 if [ "$(uname -s)" != "Linux" ]; then
-  bad "النظام $(uname -s). فرض عزل الشبكة (networkScope) يعمل على Linux فقط."
+  badb "النظام $(uname -s). فرض عزل الشبكة (networkScope) يعمل على Linux فقط."
   printf '    %sبدونه تصبح عزلة وكلاء القضايا وعدًا نصيًا لا قيدًا تقنيًا.%s\n' "$c_dim" "$c_0"
 elif command -v bwrap >/dev/null 2>&1; then
   ok "bwrap متاح — عزل الشبكة قابل للفرض"
 else
-  bad "bwrap غير مثبّت. ثبّته:  sudo apt install bubblewrap"
+  badb "bwrap غير مثبّت. ثبّته:  sudo apt install bubblewrap"
   printf '    %sهو ما يمنع وكيل القضية تقنيًا من بلوغ أي جهة غير واجهة النموذج.%s\n' "$c_dim" "$c_0"
 fi
 
@@ -45,7 +50,7 @@ if command -v node >/dev/null 2>&1; then
   if [ "$(printf '%s\n24.11.0\n' "$NODEV" | sort -V | head -1)" = "24.11.0" ]; then
     ok "node v$NODEV"
   else
-    bad "node v$NODEV — Paperclip يشترط 24.11.0 فأحدث"
+    badb "node v$NODEV — Paperclip يشترط 24.11.0 فأحدث"
     printf '    %sثبّت أحدث نسخة قبل تشغيل onboard.%s\n' "$c_dim" "$c_0"
   fi
 else
@@ -95,8 +100,13 @@ fi
 
 printf '\n%s%s%s\n' "$c_dim" "──────────────────────────────────────────────────────────" "$c_0"
 if [ "$FAIL" -gt 0 ]; then
-  printf '%s✗ %d متطلب ناقص — عالجها قبل المتابعة.%s\n\n' "$c_red" "$FAIL" "$c_0"
+  printf '%s✗ %d متطلب ناقص للوضع (أ) — عالجها قبل المتابعة.%s\n\n' "$c_red" "$FAIL" "$c_0"
   exit 1
+fi
+if [ "$FAIL_B" -gt 0 ]; then
+  printf '%s! %d متطلب ناقص للوضع (ب) فقط.%s\n' "$c_yel" "$FAIL_B" "$c_0"
+  printf '  الأدوات تعمل الآن: ابنِ المدونة وابحث فيها وافحص المسودات وأصدر Word.\n'
+  printf '  وعالج ما سبق قبل تشغيل المنصة والوكلاء.  %sdocs/tashghil.md%s\n\n' "$c_dim" "$c_0"
 fi
 
 cat <<'STEPS'
@@ -104,35 +114,35 @@ cat <<'STEPS'
 
 الدليل الكامل:  docs/tashghil.md
 
-الخطوات التالية بالترتيب:
+الوضع (أ) — الأدوات وحدها. ابدأ هنا: المدونة شرط لكل ما بعدها.
 
-  1) حصّن البيئة وتحقق
-       set -a; . ./config/env.local; set +a
+  1) ابنِ المدونة القانونية
+       python3 scripts/build-corpus.py --plan       # ماذا سيفعل قبل أن يفعله
+       python3 scripts/build-corpus.py --discover   # رشّح روابط التشريعات
+       python3 scripts/build-corpus.py              # نزّل واستورد وعايِر
+       python3 tools/corpus/corpus_cli.py stats     # ينتهي بـ«الخطوة التالية»
+
+  2) جرّب الأدوات على النواة الحتمية
+       ./scripts/e2e-test.sh                        # 40 فحصًا، بلا شبكة ولا نموذج
+
+الوضع (ب) — المكتب الكامل بالوكلاء وخط القضايا.
+
+  3) حصّن البيئة وتحقق
+       set -a; . ./config/env.local; set +a         # ضع ANTHROPIC_API_KEY أولًا
        ./scripts/verify-isolation.sh
 
-  2) شغّل Paperclip واستورد المكتب
+  4) شغّل Paperclip واستورد المكتب
        npx --registry https://registry.npmjs.org paperclipai onboard --yes
+       ./scripts/verify-isolation.sh                # onboard يعيد تفعيل التليمتري
        paperclipai auth login
        paperclipai token board create --name airlock --never-expires
-       npx paperclipai company import ./maktab --dry-run     # فحص أولًا
+       npx paperclipai company import ./maktab --dry-run
        npx paperclipai company import ./maktab --target new \
            --new-company-name "مكتب الاستشارات القانونية" --yes
 
-     ⚠ onboard يعيد تفعيل التليمتري في ملف الإعداد. أعد التحقق بعده:
-       ./scripts/verify-isolation.sh
-
-  3) هيّئ الخط والعزل والسقوف
+  5) هيّئ الخط والعزل والسقوف
        export PAPERCLIP_API_URL=http://127.0.0.1:3100
-       export PAPERCLIP_API_KEY=<token>
+       export PAPERCLIP_API_KEY=<الرمز المطبوع>
        python3 scripts/provision.py --company-id <uuid>
-
-  4) ابنِ المدونة القانونية — لا يعمل المكتب بدونها
-       python3 scripts/build-corpus.py --plan   # ماذا سيفعل قبل أن يفعله
-       python3 scripts/build-corpus.py          # ينزّل ويستورد ويعايِر
-       python3 tools/corpus/corpus_cli.py stats
-       python3 tools/contracts/fill_sanad.py    # أسناد بنود العقود
-
-  5) جرّب قضية اصطناعية من طرف إلى طرف
-       ./scripts/e2e-test.sh
 
 STEPS

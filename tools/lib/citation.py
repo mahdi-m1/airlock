@@ -106,8 +106,24 @@ def find_malformed(text: str) -> list[tuple[int, str]]:
 
 
 def render_clean(text: str) -> str:
-    """إزالة العلامات الآلية لإنتاج الوثيقة النهائية بالعربية فقط."""
-    text = _MARKER.sub("", text)
-    text = re.sub(r"[ \t]+([،.؛:])", r"\1", text)   # مسافة قبل علامة ترقيم
-    text = re.sub(r"[ \t]{2,}", " ", text)          # مسافات مزدوجة
-    return re.sub(r"[ \t]+$", "", text, flags=re.MULTILINE)  # مسافة آخر السطر
+    """إزالة العلامات الآلية لإنتاج الوثيقة النهائية بالعربية فقط.
+
+    سطرًا سطرًا لسببين، وكلاهما ظهر في وثيقة فعلية:
+
+    * علامة في أول السطر تترك خلفها مسافة بادئة لم تكن فيه. وهي في Markdown
+      ليست تجميلًا: مسافة تُزيح الفقرة عند التصدير إلى Word، وأربع تجعل السطر
+      كتلة شفرة. فالمسافة البادئة لا تتجاوز ما كان في الأصل.
+    * طيّ المسافات المتكررة على السطر كله كان يبتلع تنسيق القوائم المتداخلة:
+      بند فرعي بأربع مسافات يعود بمسافة واحدة فيفقد تداخله. فالطيّ الآن على
+      متن السطر وحده، وبادئته تُحفظ كما كتبها الكاتب.
+    """
+    lines = []
+    for line in text.split("\n"):
+        keep = len(line) - len(line.lstrip(" \t"))     # البادئة الأصلية
+        cleaned = _MARKER.sub("", line)
+        pad = len(cleaned) - len(cleaned.lstrip(" \t"))
+        body = cleaned[pad:]
+        body = re.sub(r"[ \t]+([،.؛:])", r"\1", body)   # مسافة قبل علامة ترقيم
+        body = re.sub(r"[ \t]{2,}", " ", body)          # مسافات مزدوجة
+        lines.append((cleaned[:min(pad, keep)] + body).rstrip())
+    return "\n".join(lines)
