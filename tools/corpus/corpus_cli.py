@@ -175,12 +175,11 @@ def _next_step(corpus: Corpus, st: dict) -> None:
 
     print("الخطوة التالية:")
     if want:
-        print(f"  ينقص {len(want)} تشريعًا. نزّل نصوصها الرسمية إلى corpus/staging/")
-        for k in want[:4]:
-            print(f"    corpus/staging/{k}.html")
-        if len(want) > 4:
-            print(f"    … و{len(want) - 4} غيرها")
-        print("  ثم:  python3 tools/ingest/ingest.py --from-staging")
+        print(f"  ينقص {len(want)} تشريعًا:  {'، '.join(want[:4])}"
+              + (f" … و{len(want) - 4} غيرها" if len(want) > 4 else ""))
+        print("  شغّل بانية المدونة — تُنزّل ما له رابط مسجَّل، وتقول لك بالضبط")
+        print("  ما بقي عليك تنزيله يدويًا:")
+        print("    python3 scripts/build-corpus.py")
         print()
         return
 
@@ -194,6 +193,7 @@ def _next_step(corpus: Corpus, st: dict) -> None:
     if not reliable:
         print("  المدونة مكتملة. عايِر عتبة التدقيق الدلالي:")
         print("    python3 scripts/calibrate-threshold.py --write")
+        print("  (تُعايَر تلقائيًا في نهاية scripts/build-corpus.py)")
         print()
         return
 

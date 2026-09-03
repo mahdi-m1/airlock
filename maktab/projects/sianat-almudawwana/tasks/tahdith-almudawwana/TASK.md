@@ -11,9 +11,10 @@ kind: task
 1. `python3 tools/corpus/corpus_cli.py stats` — ما التشريعات غير المستوردة أو غير
    المتحقق منها؟
 2. راجع القضايا الموسومة `نقص-مدونة` — أي تشريع أعجز قضية عن المضي؟
-3. نزّل النصوص الرسمية الناقصة إلى `corpus/staging/<key>.html` من المصادر المدرجة
-   في `corpus/sources.yaml` حصرًا.
-4. `python3 tools/ingest/ingest.py --from-staging`
+3. `python3 scripts/build-corpus.py` — ينزّل ما له رابط مسجَّل ويستورده ويعايِر.
+4. ما بقي في قائمة «ما بقي عليك»: نزّله يدويًا إلى `corpus/staging/<key>.html` من
+   المصادر المدرجة في `corpus/sources.yaml` حصرًا، ثم أعد تشغيل السكربت. وما لا
+   رابط له، أبلغ به بدل أن تسجّل رابطًا لم تفتحه.
 5. عالج تعارضات العناوين بتصحيح `sources.yaml` ليطابق النص الرسمي.
 6. أعد معايرة عتبة التدقيق الدلالي — إلزامية بعد أي توسيع:
    `python3 scripts/calibrate-threshold.py --write`

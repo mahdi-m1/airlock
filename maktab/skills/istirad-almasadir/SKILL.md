@@ -11,10 +11,18 @@ description: استيراد التشريعات البحرينية من المص�
 
 ## الدورة
 ```
-python3 tools/corpus/corpus_cli.py stats                    # ما الناقص؟
-# نزّل النص الرسمي إلى corpus/staging/<key>.html
-python3 tools/ingest/ingest.py --from-staging               # استورد وتحقق
-python3 tools/corpus/corpus_cli.py stats                    # تأكد
+python3 scripts/build-corpus.py --plan     # ما الجاهز وما الناقص، دون تنفيذ
+python3 scripts/build-corpus.py            # ينزّل ويحوّل ويستورد ويعايِر
+python3 tools/corpus/corpus_cli.py stats   # تأكد
+```
+
+السكربت يطبع في نهايته قائمة «ما بقي عليك» — تشريع بلا رابط مسجَّل أو تعذّر
+تنزيله. **لا تملأ رابطًا ولا رقم جريدة من الذاكرة ولا من نتيجة بحث**: أبلغ
+الشريك المدير بالقائمة كما هي. مصدر لم تفتحه ليس مصدرًا.
+
+الاستيراد وحده، حين تكون الملفات مُجهَّزة يدويًا:
+```
+python3 tools/ingest/ingest.py --from-staging
 ```
 
 ## معايرة العتبة بعد كل توسيع

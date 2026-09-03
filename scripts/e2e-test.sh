@@ -132,6 +132,41 @@ else
   bad "مرّ إسناد إلى نص غير موثّق"; tail -5 "$TMP/np-gate.log" | sed 's/^/      /'
 fi
 
+# ── 2ج. بانية المدونة تقود الدورة ولا تخترع مصدرًا ───────────────────
+step "2ج. بانية المدونة: تستورد المُجهَّز وتُعلن ما بقي"
+python3 - "$TMP" <<'PYB' >/dev/null
+import sys, yaml, pathlib
+tmp = pathlib.Path(sys.argv[1])
+src = yaml.safe_load(open('corpus/sources.yaml', encoding='utf-8'))
+src['ingest'].update(staging_dir='tools/tests/fixtures/staging',
+                     index_db=str(tmp/'built.db'), records_jsonl=str(tmp/'built.jsonl'))
+for inst in src['instruments']:
+    if inst['key'] == 'labour-private-sector':
+        inst.update(url='https://lloc.gov.bh/fixture',
+                    gazette_issue='0000', gazette_date='2012-07-26')
+(tmp/'build.yaml').write_text(yaml.safe_dump(src, allow_unicode=True), encoding='utf-8')
+PYB
+# --no-fetch: الفحص الشامل لا يلمس الشبكة إطلاقًا
+python3 scripts/build-corpus.py --sources "$TMP/build.yaml" --no-fetch \
+  >"$TMP/build.log" 2>&1 || true
+if grep -q "مستورد: 1" "$TMP/build.log"; then
+  ok "استوردت التشريع المُجهَّز عبر الدورة كاملة"
+else
+  bad "لم تستورد المُجهَّز"; tail -8 "$TMP/build.log" | sed 's/^/      /'
+fi
+# التشريعات التسعة الأخرى بلا رابط ولا ملف: تُعلَن ولا تُختلق
+if grep -q "ما بقي عليك" "$TMP/build.log" && grep -q "set-provenance" "$TMP/build.log"; then
+  ok "أعلنت ما بقي وأعطت أمر تسجيل التوثيق"
+else
+  bad "لم تُعلن التشريعات الناقصة"
+fi
+if grep -qE "https://…|https://\.\.\." "$TMP/build.log" \
+   && ! grep -qE 'url.*https://(lloc|legalaffairs|mola)\.gov\.bh/[A-Za-z0-9]+" *\\$' "$TMP/build.log"; then
+  ok "لم تختلق رابطًا لتشريع بلا مصدر مسجَّل"
+else
+  bad "ظهر رابط مُخمَّن في مخرجات البانية"
+fi
+
 # ── 3. البحث المقتطع ──────────────────────────────────────────────────
 step "3. البحث المقتطع يجد المادة الحاكمة"
 if python3 tools/corpus/corpus_cli.py --db "$DB" search "الفصل التعسفي تعويض" \

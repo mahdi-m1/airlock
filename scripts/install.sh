@@ -65,7 +65,8 @@ if python3 scripts/validate.py >/tmp/_v.txt 2>&1; then
 else
   bad "فشل التحقق من الحزمة:"; sed 's/^/    /' /tmp/_v.txt | tail -12
 fi
-for t in test_arabic_citation test_semantic test_documents test_docx test_contracts test_sources; do
+for t in test_arabic_citation test_semantic test_documents test_docx test_contracts test_sources \
+         test_build_corpus; do
   if python3 "tools/tests/$t.py" >/tmp/_t.txt 2>&1; then
     ok "اختبارات $t ناجحة"
   else
@@ -112,11 +113,10 @@ cat <<'STEPS'
        python3 scripts/provision.py --company-id <uuid>
 
   4) ابنِ المدونة القانونية — لا يعمل المكتب بدونها
-       # نزّل النصوص الرسمية إلى corpus/staging/<key>.html
-       python3 tools/ingest/ingest.py --from-staging
+       python3 scripts/build-corpus.py --plan   # ماذا سيفعل قبل أن يفعله
+       python3 scripts/build-corpus.py          # ينزّل ويستورد ويعايِر
        python3 tools/corpus/corpus_cli.py stats
-       python3 scripts/calibrate-threshold.py --write   # عايِر عتبة الدلالة
-       python3 tools/contracts/fill_sanad.py            # أسناد بنود العقود
+       python3 tools/contracts/fill_sanad.py    # أسناد بنود العقود
 
   5) جرّب قضية اصطناعية من طرف إلى طرف
        ./scripts/e2e-test.sh

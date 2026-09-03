@@ -80,9 +80,9 @@ export PAPERCLIP_API_KEY=<token>
 python3 scripts/provision.py --company-id <uuid>
 
 # 4) بناء المدونة القانونية — المكتب لا يعمل بدونها
-python3 tools/ingest/ingest.py --from-staging
+python3 scripts/build-corpus.py --plan    # ماذا سيفعل قبل أن يفعله
+python3 scripts/build-corpus.py           # ينزّل ويستورد ويعايِر، ويقول ما بقي
 python3 tools/corpus/corpus_cli.py stats
-python3 scripts/calibrate-threshold.py --write   # عايِر عتبة الدلالة
 ```
 
 > `paperclipai company import` يأخذ المسار **موضعيًا** لا بـ`--from`،
@@ -101,11 +101,24 @@ python3 scripts/calibrate-threshold.py --write   # عايِر عتبة الدل�
 وفي أي وقت، `corpus_cli.py stats` ينتهي بسطر «الخطوة التالية» يقول أين أنت.
 
 ```bash
-# نزّل النص الرسمي لكل تشريع إلى مجلد التجهيز
-#   corpus/staging/labour-private-sector.html
-#   corpus/staging/civil-code.html          ... إلخ
-python3 tools/ingest/ingest.py --from-staging
+python3 scripts/build-corpus.py
 ```
+
+يفحص سجل المصادر، وينزّل كل تشريع له رابط مسجَّل — من النطاقات الرسمية وحدها،
+وكل تحويلة تُفحص على حدة — ويحوّل PDF وWord إلى نص، ويستورد ويتحقق، ويعايِر عتبة
+الدلالة، ثم يطبع أمرًا جاهزًا لكل تشريع بقي.
+
+**لا يخترع رابطًا ولا رقم جريدة ولا سطرًا من نص قانوني.** فالتشريع الذي لا رابط
+له يبقى مُعلنًا في قائمة «ما بقي عليك» بدل أن يدخل المدونة بمصدر مُخمَّن. سجّل
+رابطه وتوثيقه مرة واحدة وأنت تتصفّح:
+
+```bash
+python3 tools/ingest/ingest.py --set-provenance civil-code \
+    --url "https://…" --gazette <العدد> --date YYYY-MM-DD
+```
+
+وما تعذّر تنزيله آليًا، نزّله يدويًا إلى `corpus/staging/<key>.html` (أو `.pdf`
+أو `.docx` — تُحوَّل تلقائيًا) ثم أعد تشغيل السكربت.
 
 الاستيراد **يتحقق من العنوان** بمقارنة النص المُنزَّل بالمُعلن في
 `corpus/sources.yaml`، ولا يوسم التشريع `verified` إلا بعد المطابقة. والوكلاء لا
@@ -367,12 +380,12 @@ python3 scripts/measure-tokens.py --company-id <uuid> --baseline baseline.json
 ## التحقق
 
 ```bash
-./scripts/e2e-test.sh          # 34 فحصًا للنواة الحتمية، بلا شبكة وبلا نموذج
+./scripts/e2e-test.sh          # 37 فحصًا للنواة الحتمية، بلا شبكة وبلا نموذج
 python3 scripts/validate.py    # سلامة الحزمة وتماسك الخط
 ./scripts/verify-isolation.sh  # العزل والتحصين
 ```
 
-الاختبار الشامل (34 فحصًا) يثبت الجزء الذي لا يصح أخذه بالثقة — أن التحريف
+الاختبار الشامل (37 فحصًا) يثبت الجزء الذي لا يصح أخذه بالثقة — أن التحريف
 **يُوقَف فعلًا**:
 
 | الحالة | النتيجة |

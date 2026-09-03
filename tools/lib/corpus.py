@@ -56,6 +56,22 @@ CREATE VIRTUAL TABLE IF NOT EXISTS articles_fts USING fts5(
 CREATE INDEX IF NOT EXISTS idx_articles_instrument ON articles(instrument_id);
 """
 
+# أعمدة أُضيفت بعد الإصدار الأول من المخزن.
+#
+# `CREATE TABLE IF NOT EXISTS` لا يمسّ جدولًا قائمًا، فمدونة بُنيت بنسخة أقدم
+# تبقى بلا هذه الأعمدة، ولا يظهر ذلك إلا حين يسقط أول استعلام يلمسها برسالة
+# sqlite غامضة (`no such column`) في وجه من يبحث عن مادة. والمدونة تُبنى مرة
+# وتُستعمل شهورًا، فالترحيل هو الحالة الطبيعية لا الاستثناء.
+_ADDED_COLUMNS: dict[str, str] = {
+    "title_match": "REAL",
+    "gazette_issue": "TEXT",
+    "gazette_date": "TEXT",
+    "amendments": "TEXT NOT NULL DEFAULT '[]'",
+    "consolidated": "INTEGER NOT NULL DEFAULT 0",
+    "source_tier": "TEXT",
+    "practice_areas": "TEXT NOT NULL DEFAULT '[]'",
+}
+
 
 def amendment_warning(inst) -> str | None:
     """تنبيه التعديلات غير المدمجة.
@@ -160,6 +176,31 @@ class Corpus:
         self.db.row_factory = sqlite3.Row
         if write:
             self.db.executescript(SCHEMA)
+        self._migrate()
+
+    def _migrate(self) -> list[str]:
+        """إضافة الأعمدة الناقصة في مدونة بُنيت بنسخة أقدم."""
+        try:
+            have = {r["name"] for r in self.db.execute("PRAGMA table_info(instruments)")}
+        except sqlite3.DatabaseError:
+            return []
+        if not have:                      # مدونة جديدة تمامًا — لا شيء يُرحَّل
+            return []
+        added = []
+        for name, decl in _ADDED_COLUMNS.items():
+            if name in have:
+                continue
+            try:
+                self.db.execute(f"ALTER TABLE instruments ADD COLUMN {name} {decl}")
+            except sqlite3.OperationalError as exc:
+                raise sqlite3.OperationalError(
+                    f"المدونة في {self.path} بُنيت بنسخة أقدم وينقصها العمود "
+                    f"«{name}»، وتعذّر ترحيلها ({exc}).\n"
+                    f"أعد بناءها:  python3 scripts/build-corpus.py") from exc
+            added.append(name)
+        if added:
+            self.db.commit()
+        return added
 
     # ── الكتابة (الاستيراد) ───────────────────────────────────────────
     def put_instrument(self, *, id: str, key: str, type: str, number: str, year: str,
