@@ -36,6 +36,11 @@ if python3 tools/tests/test_documents.py >"$TMP/doc.log" 2>&1; then
 else
   bad "فشل اختبار المستندات"; tail -14 "$TMP/doc.log" | sed 's/^/      /'
 fi
+if python3 tools/tests/test_docx.py >"$TMP/docx.log" 2>&1; then
+  ok "اختبارات إصدار Word ناجحة (بنية + اتجاه عربي)"
+else
+  bad "فشل اختبار إصدار Word"; tail -14 "$TMP/docx.log" | sed 's/^/      /'
+fi
 
 # ── 1. سلامة الحزمة ───────────────────────────────────────────────────
 step "1. سلامة حزمة المكتب"
@@ -203,6 +208,28 @@ if python3 tools/citation-gate/gate.py "$TMP/good.md" --kind memo --db "$DB" 2>/
   ok "البوابة تعلن سقوطها للعتبة الافتراضية بدل ادعاء معايرة"
 else
   bad "البوابة لا تعلن مصدر العتبة"
+fi
+
+# ── 6هـ. الإصدار بصيغة Word ──────────────────────────────────────────
+step "6هـ. الإصدار بصيغة Word لا يتخطى البوابة"
+python3 tools/documents/export_cli.py "$TMP/bad.md" --kind memo --db "$DB" \
+  --out "$TMP/marfud.docx" >"$TMP/x1.log" 2>&1
+if [ $? -ne 0 ] && [ ! -f "$TMP/marfud.docx" ]; then
+  ok "مسودة مردودة لا يُنتج لها ملف Word"
+else
+  bad "صُدّرت مسودة مردودة — عطب جسيم"
+fi
+python3 tools/documents/export_cli.py "$TMP/good.md" --kind memo --db "$DB" \
+  --out "$TMP/mudhakkira.docx" >"$TMP/x2.log" 2>&1
+if [ $? -eq 0 ] && [ -f "$TMP/mudhakkira.docx" ]; then
+  ok "المسودة المُجازة تصدر بصيغة Word"
+  if python3 -c 'import sys,zipfile;d=zipfile.ZipFile(sys.argv[1]).read("word/document.xml").decode();assert "<w:bidi/>" in d and "<w:rtl/>" in d and "w:szCs" in d;assert "\u27e6" not in d;assert "\u0645\u0633\u0648\u062f\u0629" in d' "$TMP/mudhakkira.docx" 2>/dev/null; then
+    ok "  عربية باتجاه صحيح، بلا علامات آلية، بترويسة المسودة"
+  else
+    bad "  الوثيقة الصادرة معطوبة"
+  fi
+else
+  bad "تعذّر إصدار مسودة مُجازة"; sed 's/^/      /' "$TMP/x2.log" | tail -6
 fi
 
 # ── 7. الوثيقة النهائية ───────────────────────────────────────────────

@@ -43,7 +43,8 @@ command -v node >/dev/null 2>&1 && ok "node $(node --version)" \
   || warn "node غير موجود — تحتاجه لتشغيل Paperclip"
 # ── خلفيات معالجة المستندات ──────────────────────────────────────────
 printf '\n2. معالجة المستندات\n'
-ok "DOCX · ODT · RTF · HTML · نص — بالمكتبة القياسية، بلا تثبيت"
+ok "قراءة DOCX · ODT · RTF · HTML · نص — بالمكتبة القياسية"
+ok "إصدار Word (.docx) عربي — بالمكتبة القياسية"
 if command -v pdftotext >/dev/null 2>&1; then ok "قراءة PDF (poppler)"
 elif python3 -c 'import pypdf' 2>/dev/null; then ok "قراءة PDF (pypdf)"
 else warn "لا خلفية لقراءة PDF:  sudo apt install poppler-utils"
@@ -64,7 +65,7 @@ if python3 scripts/validate.py >/tmp/_v.txt 2>&1; then
 else
   bad "فشل التحقق من الحزمة:"; sed 's/^/    /' /tmp/_v.txt | tail -12
 fi
-for t in test_arabic_citation test_semantic test_documents; do
+for t in test_arabic_citation test_semantic test_documents test_docx; do
   if python3 "tools/tests/$t.py" >/tmp/_t.txt 2>&1; then
     ok "اختبارات $t ناجحة"
   else

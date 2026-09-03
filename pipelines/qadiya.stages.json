@@ -331,16 +331,27 @@
     "kind": "working",
     "position": 800,
     "config": {
-      "whatHappensHere": "كتابة الوثيقة النهائية محليًا تحت cases/<رقم القضية>/. لا نشر ولا إرسال خارجي.",
+      "whatHappensHere": "إصدار الوثيقة النهائية بصيغة Word تحت cases/<رقم القضية>/. محليًا فقط — لا نشر ولا إرسال خارجي.",
       "_assigneeAgentSlug": "partner-manager",
       "automation": {
-        "instructionsBody": "تأكد أن بوابة الإسناد مرّت وأن المراجع اعتمد. ولّد الوثيقة النهائية بلا علامات آلية: python3 tools/citation-gate/gate.py <المسودة> --kind <memo|pleading> --render cases/<رقم>/<اسم الملف>.md — الأمر يكتب الوثيقة النظيفة فقط عند نجاح البوابة."
+        "instructionsBody": "تأكد أن المراجع اعتمد، ثم أصدر الوثيقة: python3 tools/documents/export_cli.py <المسودة>.md --kind <memo|pleading|opinion> --out cases/<رقم>/<اسم>.docx — الأداة تشغّل بوابة الإسناد بنفسها وترفض التصدير إن لم تُجَز المسودة أو كان ثمة تحكيم معلّق، وتزيل العلامات الآلية وتضيف ترويسة المسودة. لا تمرر --no-gate عند التسليم."
       },
       "variables": [
         {
           "key": "masar_altaslim",
-          "label": "مسار الوثيقة النهائية",
+          "label": "مسار وثيقة Word النهائية",
           "type": "text",
+          "required": true
+        },
+        {
+          "key": "nawa_almustanad",
+          "label": "نوع الوثيقة",
+          "type": "select",
+          "options": [
+            "مذكرة",
+            "مرافعة",
+            "رأي"
+          ],
           "required": true
         }
       ]
